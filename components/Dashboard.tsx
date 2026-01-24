@@ -5,10 +5,10 @@ import TextArea from './TextArea';
 import Select from './Select';
 import PricingModal from './PricingModal';
 import AccountModal from './AccountModal';
-import UserMenu from './UserMenu';
-import { rewriteContent, ReferenceFile } from '../geminiService';
-import { dbService } from '../dbService';
-import { useAuth } from '../AuthContext';
+import UserMenu from './UserMenu'; // Fixed: Removed /Auth
+import { rewriteContent, ReferenceFile } from '../geminiService'; // Fixed: Removed /services
+import { dbService } from '../dbService'; // Fixed: Removed /services
+import { useAuth } from '../AuthContext'; // Fixed: Removed /contexts
 import { RewriteStatus, VoicePreset } from '../types';
 import { jsPDF } from "jspdf";
 
