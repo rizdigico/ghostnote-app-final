@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          '@': path.resolve('.'), // FIXED: Removed __dirname
+          '@': path.resolve('.'), // FIXED: Changed from __dirname to '.'
         }
       }
     };
