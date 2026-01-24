@@ -1,5 +1,5 @@
-import { User, UserPlan, VoicePreset } from '../types';
-import { VOICE_PRESETS } from '../constants';
+import { User, UserPlan, VoicePreset } from './types';
+import { VOICE_PRESETS } from './constants';
 
 // --- MOCK DATABASE CONFIGURATION ---
 // When moving to Firebase/Supabase, replace these methods with real API calls.
