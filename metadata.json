@@ -1,0 +1,5 @@
+{
+  "name": "GhostNoteAI",
+  "description": "A dark-mode SaaS tool for freelancers to rewrite content in specific client voices using AI.",
+  "requestFramePermissions": []
+}
