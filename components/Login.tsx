@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Mail } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../AuthContext';
 
 interface LoginProps {
   onSuccess: () => void;
