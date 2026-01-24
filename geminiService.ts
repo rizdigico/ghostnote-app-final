@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { SYSTEM_INSTRUCTION } from "../constants";
+import { SYSTEM_INSTRUCTION } from "./constants";
 
 // --- SECURITY & VALIDATION CONFIG ---
 const MAX_DRAFT_LENGTH = 50000; // Limit draft size to prevent token exhaustion
