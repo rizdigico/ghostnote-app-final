@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
-import Login from './components/Login';
+import Login from './components/Login'; // Fixed: Removed /Auth
 import LegalPage from './components/LegalPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import { UserPlan } from './types';
-import { AuthProvider } from './AuthContext';
+import { AuthProvider, useAuth } from './AuthContext'; // Fixed: Removed /contexts
 import { Check, X } from 'lucide-react';
 
 type ViewState = 'landing' | 'app' | 'login' | 'terms' | 'privacy' | 'payment_success';
@@ -18,17 +18,12 @@ const AppContent: React.FC = () => {
   const [successPlanName, setSuccessPlanName] = useState<string>('');
   const { user, updatePlan } = useAuth();
 
-  // Route Handling
   useEffect(() => {
     const path = window.location.pathname;
-    
-    // Check for Payment Success Route
     if (path === '/payment-success') {
        setCurrentView('payment_success');
        return;
     }
-
-    // Legacy verify logic (kept for backward compatibility if needed)
     const params = new URLSearchParams(window.location.search);
     if (params.get('paid') === 'true') {
       updatePlan('clone');
@@ -62,14 +57,11 @@ const AppContent: React.FC = () => {
   
   const handlePaymentComplete = (planName: string) => {
     setSuccessPlanName(planName ? (planName.charAt(0).toUpperCase() + planName.slice(1)) : 'Premium');
-    // Clean URL
     window.history.replaceState({}, '', '/');
     setCurrentView('app');
     setShowPaymentSuccess(true);
     setTimeout(() => setShowPaymentSuccess(false), 5000);
   };
-
-  // --- ROUTING LOGIC ---
 
   if (currentView === 'payment_success') {
       return <PaymentSuccessPage onComplete={handlePaymentComplete} />;
@@ -83,7 +75,6 @@ const AppContent: React.FC = () => {
     return <LegalPage type="privacy" onBack={handleBackFromLegal} />;
   }
 
-  // Common UI Wrapper for alerts
   const renderAlerts = () => (
     <>
       {showPaymentSuccess && (
@@ -114,9 +105,6 @@ const AppContent: React.FC = () => {
               </header>
               <Login 
                 onSuccess={() => {
-                  if (initialPlan !== 'echo') {
-                      // Logic for pre-selected plan
-                  }
                   setCurrentView('app');
                 }}
                 onViewLegal={navigateToLegal}
@@ -134,7 +122,6 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Default: Landing Page
   return (
       <>
         {renderAlerts()}
