@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
-import Login from './components/Auth/Login';
+import Login from './components/Login';
 import LegalPage from './components/LegalPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import { UserPlan } from './types';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './AuthContext';
 import { Check, X } from 'lucide-react';
 
 type ViewState = 'landing' | 'app' | 'login' | 'terms' | 'privacy' | 'payment_success';
