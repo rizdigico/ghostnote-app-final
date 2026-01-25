@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GhostNote</title>
+    <meta name="description" content="GhostNote - AI-powered ghostwriting tool using Google Gemini API. Rewrite your content with custom voice presets." />
+    <meta name="keywords" content="ghostwriting, AI, writing tool, content generation, Gemini API" />
+    <meta name="author" content="GhostNote Team" />
+    <meta name="theme-color" content="#09090b" />
+    
+    <!-- Security Headers (Recommended for your hosting platform) -->
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://generativelanguage.googleapis.com;" />
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="GhostNote - AI Ghostwriting Tool" />
+    <meta property="og:description" content="Rewrite your content with AI-powered voice presets" />
+    
+    <title>GhostNote - AI Ghostwriting Tool</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -71,5 +86,12 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <!-- No-op script to satisfy CSP if needed -->
+    <script>
+      // Prevent inline script execution in strict mode
+      if (document.currentScript) {
+        document.currentScript.remove();
+      }
+    </script>
   </body>
 </html>

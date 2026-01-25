@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../AuthContext';
 import { UserPlan } from '../types';
 
 interface PaymentSuccessPageProps {

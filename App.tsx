@@ -4,6 +4,7 @@ import LandingPage from './components/LandingPage';
 import Login from './components/Login'; // Fixed: Removed /Auth
 import LegalPage from './components/LegalPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
+import ErrorBoundary from './components/ErrorBoundary';
 import { UserPlan } from './types';
 import { AuthProvider, useAuth } from './AuthContext'; // Fixed: Removed /contexts
 import { Check, X } from 'lucide-react';
@@ -132,9 +133,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-        <AppContent />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+          <AppContent />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 

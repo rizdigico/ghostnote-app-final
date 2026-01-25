@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from "@google/genai";
 import { SYSTEM_INSTRUCTION } from "./constants";
 
 // --- SECURITY & VALIDATION CONFIG ---
@@ -66,7 +66,8 @@ const validateInputs = (draft: string, referenceText: string | null, referenceFi
 };
 
 const getGeminiClient = () => {
-  const apiKey = process.env.API_KEY;
+  // For Vite/client-side apps, use import.meta.env
+  const apiKey = (import.meta.env as any).VITE_GEMINI_API_KEY || (import.meta.env as any).GEMINI_API_KEY;
   if (!apiKey) {
     // Return generic error to avoid leaking env var status details if exposed
     throw new Error("Service configuration error.");
@@ -146,10 +147,10 @@ ${intensityPrompt}`.trim();
         temperature: 0.7,
         // Safety settings updated for Content Policy
         safetySettings: [
-            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_ONLY_HIGH' },
-            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
         ],
       },
     });

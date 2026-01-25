@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Trash2, AlertTriangle, User as UserIcon, Mail, Calendar, Shield, LifeBuoy, Code, Copy, Check, ExternalLink, Lock, Zap } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../AuthContext';
 import ApiDocsViewer from './ApiDocsViewer';
 
 interface AccountModalProps {
