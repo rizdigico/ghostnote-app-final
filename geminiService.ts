@@ -85,7 +85,7 @@ export const rewriteContent = async (
   referenceText: string | null,
   referenceFile: ReferenceFile | null,
   intensity: number = 50,
-  model: string = 'gemini-3-flash-preview' // Default to Flash (Standard)
+  model: string = 'gemini-2.5-flash' // Default to Flash (Standard)
 ): Promise<string> => {
   try {
     // 1. Rate Limiting Check

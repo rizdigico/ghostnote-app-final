@@ -257,7 +257,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
         const total = rowsToProcess.length;
 
         // Use standard model for bulk (unless we want to support pro here too, assume std for rate limits)
-        const bulkModel = 'gemini-3-flash-preview'; 
+        const bulkModel = 'gemini-2.5-flash'; 
 
         for (let i = 0; i < total; i++) {
              setLoadingMessage(`PROCESSING ROW ${i + 1}/${total}`);
@@ -328,8 +328,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     }
 
     // Determine Model & Logic based on Plan
-    // Free plan uses Gemini 2.5 Pro (updated from Flash), Paid uses Gemini 3 Pro
-    const modelToUse = isPaidPlan ? 'gemini-3-pro-preview' : 'gemini-2.5-pro-preview';
+    // Free plan uses Gemini 2.5 Flash, Paid uses Gemini 2.5 Pro
+    const modelToUse = isPaidPlan ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
 
     setStatus(RewriteStatus.LOADING);
     setErrorMessage(null);
