@@ -17,7 +17,8 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete }) =
 
     const handleUpgrade = async () => {
       const params = new URLSearchParams(window.location.search);
-      const plan = params.get('plan');
+      // Check for plan parameter from redirect or client_reference_id from Stripe
+      let plan = params.get('plan') || params.get('client_reference_id');
       
       if (plan === 'clone' || plan === 'syndicate') {
         // AUTOMATICALLY trigger update
@@ -34,7 +35,7 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete }) =
       } else {
         // Fallback if no plan param found (e.g. direct access)
         setTimeout(() => {
-            onComplete('Premium');
+            onComplete('clone');
         }, 2000);
       }
     };
