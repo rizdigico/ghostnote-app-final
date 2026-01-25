@@ -15,9 +15,9 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
 
   const handlePlanSelection = (planId: UserPlan) => {
     if (planId === 'clone') {
-      window.open('https://buy.stripe.com/test_00wdRafdk4609Bb0M0fbq01', '_blank');
+      window.open('https://buy.stripe.com/aFa28sbSo9iQ3tv9jK5Vu01', '_blank');
     } else if (planId === 'syndicate') {
-      window.open('https://buy.stripe.com/test_eVq6oI9T0cCweVv7aofbq03', '_blank');
+      window.open('https://buy.stripe.com/dRm8wQ5u0dz63tv3Zq5Vu00', '_blank');
     } else {
       onSelectPlan(planId);
     }

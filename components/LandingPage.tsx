@@ -283,7 +283,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal }) =>
       {/* Footer */}
       <footer className="border-t border-border py-12 text-center">
          <div className="mb-6 flex justify-center items-center gap-6 text-sm font-medium text-textMuted">
-            <a href="#" className="hover:text-white transition-colors flex items-center gap-2">
+            <a href="https://www.instagram.com/ghostnoteai" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors flex items-center gap-2">
                <Instagram size={18} />
                <span>Instagram</span>
             </a>
