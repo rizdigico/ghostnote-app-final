@@ -107,6 +107,27 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete, onO
 
   // Show login prompt if user is not authenticated
   if (needsLogin) {
+    const handleLoginClick = () => {
+      const params = new URLSearchParams(window.location.search);
+      const plan = params.get('plan');
+      
+      // Save plan to localStorage if it exists
+      if (plan && ['clone', 'syndicate'].includes(plan)) {
+        localStorage.setItem('pendingPlan', plan);
+        console.log(`💾 Saved plan "${plan}" to localStorage for post-login`);
+      }
+      
+      // Navigate to home/login page
+      if (onOpenLoginModal) {
+        console.log('🔐 Opening login modal');
+        onOpenLoginModal();
+      } else {
+        // Fallback: Redirect to home where login modal should be
+        console.log('🔗 Redirecting to home page');
+        window.location.href = '/';
+      }
+    };
+
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center animate-fade-in-up">
         <div className="relative mb-8">
@@ -121,7 +142,7 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete, onO
         </p>
         
         <button
-          onClick={onOpenLoginModal}
+          onClick={handleLoginClick}
           className="px-8 py-3 bg-accent text-black font-bold rounded-lg hover:bg-white transition-all shadow-lg flex items-center gap-2"
         >
           <LogIn size={18} />

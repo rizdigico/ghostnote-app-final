@@ -63,6 +63,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [redirectProcessed, setRedirectProcessed] = useState(false);
 
   // CRITICAL: Handle Google OAuth redirect result ONCE on mount
   useEffect(() => {
@@ -76,16 +77,42 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // User just came back from Google - ensure they exist in database
           const userData = await ensureUserDocument(result.user);
           setUser(userData);
-          console.log('✅ User document ensured in Firestore');
-          // Page will now show dashboard via router.push in useEffect below
+          setRedirectProcessed(true);
+          setIsLoading(false);
+          setAuthError(null);
+          console.log('✅ User document ensured in Firestore, setting user state');
+          
+          // PENDING PLAN RECOVERY: Apply any pending plan immediately
+          const pendingPlan = localStorage.getItem('pendingPlan');
+          if (pendingPlan && ['clone', 'syndicate'].includes(pendingPlan)) {
+            try {
+              console.log(`🔄 Auto-applying pending plan after redirect: ${pendingPlan}`);
+              const userDocRef = doc(db, 'users', result.user.uid);
+              await updateDoc(userDocRef, {
+                plan: pendingPlan as UserPlan
+              });
+              localStorage.removeItem('pendingPlan');
+              console.log('✅ Pending plan applied immediately after redirect!');
+            } catch (pendingPlanError) {
+              console.error('⚠️ Failed to apply pending plan after redirect:', pendingPlanError);
+            }
+          }
+          
+          // Redirect to dashboard
+          if (window.location.pathname !== '/dashboard') {
+            window.location.href = '/dashboard';
+          }
         } else {
           console.log('ℹ️ No redirect result found (normal page load)');
+          setRedirectProcessed(true);
+          setIsLoading(false); // CRITICAL: Ensure loading is false on normal load
         }
       } catch (error: any) {
         console.error('❌ Failed to handle Google redirect result:', error);
         // CRITICAL: Reset loading state to prevent button from getting stuck
         setIsLoading(false);
         setAuthError('Failed to complete Google login. Please try again.');
+        setRedirectProcessed(true);
       }
     };
     
@@ -94,6 +121,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Listen to Firebase auth state changes
   useEffect(() => {
+    // Skip auth state processing if redirect was already handled
+    if (redirectProcessed && user) {
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
@@ -125,6 +157,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               setUser(docSnap.data() as User);
             }
             setIsLoading(false);
+            setAuthError(null);
           });
 
           // Return cleanup function for snapshot subscription
@@ -138,11 +171,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.error("Failed to process auth state:", error);
         setUser(null);
         setIsLoading(false);
+        setAuthError('Failed to load user data');
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [redirectProcessed, user]);
 
   const loginWithGoogle = async () => {
     setIsLoading(true);
