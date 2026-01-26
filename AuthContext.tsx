@@ -1,56 +1,75 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserPlan } from './types';
 import { dbService } from './dbService';
-import { auth, googleProvider } from './src/lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { auth } from './src/lib/firebase';
+import {
+  signInWithPopup,
+  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  type AuthError,
+} from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from './src/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: () => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  signupWithEmail: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   updatePlan: (plan: UserPlan) => Promise<void>;
   deductCredit: () => Promise<void>;
   toggleInstagram: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   generateApiKey: () => Promise<void>;
+  authError: string | null;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const googleProvider = new GoogleAuthProvider();
+
+// Helper function to ensure user document exists in Firestore
+const ensureUserDocument = async (firebaseUser: any) => {
+  const userDocRef = doc(db, 'users', firebaseUser.uid);
+  const userDocSnap = await getDoc(userDocRef);
+
+  if (!userDocSnap.exists()) {
+    // Create new user document with default data
+    const newUser: User = {
+      id: firebaseUser.uid,
+      email: firebaseUser.email || '',
+      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+      plan: 'echo',
+      credits: 5,
+      joinedDate: new Date().toISOString(),
+      instagramConnected: false,
+    };
+    await setDoc(userDocRef, newUser);
+    return newUser;
+  }
+
+  return userDocSnap.data() as User;
+};
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Listen to Firebase auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
-          // User is signed in
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-
-          if (userDocSnap.exists()) {
-            // User document exists, load it
-            const userData = userDocSnap.data() as User;
-            setUser(userData);
-          } else {
-            // Create new user document with default data
-            const newUser: User = {
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-              plan: 'echo',
-              credits: 5,
-              joinedDate: new Date().toISOString(),
-              instagramConnected: false,
-            };
-            await setDoc(userDocRef, newUser);
-            setUser(newUser);
-          }
+          // User is signed in - ensure user document exists
+          const userData = await ensureUserDocument(firebaseUser);
+          setUser(userData);
         } else {
           // User is signed out
           setUser(null);
@@ -66,27 +85,69 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsubscribe();
   }, []);
 
-  const login = async () => {
+  const loginWithGoogle = async () => {
     setIsLoading(true);
+    setAuthError(null);
     try {
       await signInWithPopup(auth, googleProvider);
       // User state will be updated via onAuthStateChanged
-    } catch (error) {
-      console.error("Login failed", error);
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to sign in with Google';
+      setAuthError(errorMessage);
+      console.error("Google login failed:", error);
       setIsLoading(false);
+    }
+  };
+
+  const signupWithEmail = async (email: string, password: string) => {
+    setIsLoading(true);
+    setAuthError(null);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      // User document will be created via onAuthStateChanged listener
+      // But we can ensure it here for immediate consistency
+      await ensureUserDocument(userCredential.user);
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to sign up';
+      setAuthError(errorMessage);
+      console.error("Email signup failed:", error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  const loginWithEmail = async (email: string, password: string) => {
+    setIsLoading(true);
+    setAuthError(null);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // User state will be updated via onAuthStateChanged
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to sign in';
+      setAuthError(errorMessage);
+      console.error("Email login failed:", error);
+      setIsLoading(false);
+      throw error;
     }
   };
 
   const logout = async () => {
     setIsLoading(true);
+    setAuthError(null);
     try {
       await signOut(auth);
       setUser(null);
-    } catch (error) {
-      console.error("Logout failed", error);
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to sign out';
+      setAuthError(errorMessage);
+      console.error("Logout failed:", error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const clearAuthError = () => {
+    setAuthError(null);
   };
 
   const updatePlan = async (plan: UserPlan) => {
@@ -156,7 +217,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, updatePlan, deductCredit, toggleInstagram, deleteAccount, generateApiKey }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        loginWithGoogle,
+        loginWithEmail,
+        signupWithEmail,
+        logout,
+        updatePlan,
+        deductCredit,
+        toggleInstagram,
+        deleteAccount,
+        generateApiKey,
+        authError,
+        clearAuthError,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

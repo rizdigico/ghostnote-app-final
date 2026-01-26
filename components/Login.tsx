@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowRight, Mail } from 'lucide-react';
-import { useAuth } from '../AuthContext'; // Fixed: Changed ../../contexts to ../
+import { useAuth } from '../AuthContext';
 
 interface LoginProps {
   onSuccess: () => void;
@@ -8,28 +8,60 @@ interface LoginProps {
 }
 
 const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
-  const { login, isLoading } = useAuth();
+  const { loginWithGoogle, loginWithEmail, signupWithEmail, isLoading, authError, clearAuthError } = useAuth();
+  
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [isSignupMode, setIsSignupMode] = useState(false);
   const [email, setEmail] = useState('');
-  const [isEmailMode, setIsEmailMode] = useState(false);
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
     try {
       setError(null);
-      await login();
+      clearAuthError();
+      await loginWithGoogle();
       onSuccess();
     } catch (err) {
-      setError('Failed to sign in with Google. Please try again.');
-      console.error(err);
+      console.error("Google login error:", err);
     }
   };
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
-    // Note: Firebase Google Auth is the primary method now
-    // Email login would require additional Firebase setup
-    setError('Email login requires additional setup. Please use Google login instead.');
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setError(null);
+      clearAuthError();
+
+      if (isSignupMode) {
+        await signupWithEmail(email, password);
+      } else {
+        await loginWithEmail(email, password);
+      }
+
+      setEmail('');
+      setPassword('');
+      setShowEmailForm(false);
+      onSuccess();
+    } catch (err: any) {
+      const errorMessage = err?.message || (isSignupMode ? 'Failed to sign up' : 'Failed to sign in');
+      setError(errorMessage);
+      console.error("Email auth error:", err);
+    }
+  };
+
+  const handleCloseEmailForm = () => {
+    setShowEmailForm(false);
+    setEmail('');
+    setPassword('');
+    setError(null);
+    clearAuthError();
+    setIsSignupMode(false);
   };
 
   return (
@@ -46,13 +78,15 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
           <p className="text-textMuted text-sm mt-2">Log in to access your Brand DNA.</p>
         </div>
 
-        {error && (
+        {/* Display auth errors */}
+        {(error || authError) && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded text-red-200 text-sm">
-            {error}
+            {error || authError}
           </div>
         )}
 
-        {!isEmailMode ? (
+        {!showEmailForm ? (
+          // Main Login Options
           <div className="space-y-4">
             <button
               onClick={handleGoogleLogin}
@@ -87,7 +121,12 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
             </button>
 
             <button
-              onClick={() => setIsEmailMode(true)}
+              onClick={() => {
+                setShowEmailForm(true);
+                setIsSignupMode(false);
+                setError(null);
+                clearAuthError();
+              }}
               className="w-full bg-surface border border-border text-textMain font-bold py-3 px-4 rounded-md flex items-center justify-center gap-3 hover:border-textMuted transition-colors"
             >
               <Mail size={18} />
@@ -95,46 +134,96 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleEmailLogin} className="space-y-4 animate-fade-in-up">
+          // Email/Password Form
+          <form onSubmit={handleEmailSubmit} className="space-y-4 animate-fade-in-up">
             <div className="text-left">
-              <label className="text-xs font-bold text-textMuted uppercase tracking-wider mb-1 block">Email Address</label>
-              <input 
-                type="email" 
+              <label className="text-xs font-bold text-textMuted uppercase tracking-wider mb-1 block">
+                Email Address
+              </label>
+              <input
+                type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@company.com"
-                className="w-full bg-background border border-border rounded-md p-3 text-textMain placeholder-textMuted/30 focus:border-accent focus:outline-none"
+                disabled={isLoading}
+                className="w-full bg-background border border-border rounded-md p-3 text-textMain placeholder-textMuted/30 focus:border-accent focus:outline-none disabled:opacity-50"
               />
             </div>
-             {/* Note: Email login currently not supported - use Google OAuth */}
-            <p className="text-xs text-textMuted">
-              Email authentication coming soon. For now, please use Google sign-in.
-            </p>
+
+            <div className="text-left">
+              <label className="text-xs font-bold text-textMuted uppercase tracking-wider mb-1 block">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                disabled={isLoading}
+                className="w-full bg-background border border-border rounded-md p-3 text-textMain placeholder-textMuted/30 focus:border-accent focus:outline-none disabled:opacity-50"
+              />
+            </div>
+
             <button
-              type="button"
-              onClick={handleGoogleLogin}
+              type="submit"
               disabled={isLoading}
               className="w-full bg-accent text-black font-bold py-3 px-4 rounded-md flex items-center justify-center gap-2 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "Signing in..." : "Sign in with Google"}
-              {!isLoading && <ArrowRight size={16} />}
+              {isLoading ? (
+                <span className="animate-pulse">Processing...</span>
+              ) : (
+                <>
+                  {isSignupMode ? 'Sign Up' : 'Sign In'}
+                  {!isLoading && <ArrowRight size={16} />}
+                </>
+              )}
             </button>
-            
-            <button 
-              type="button" 
-              onClick={() => setIsEmailMode(false)}
-              className="text-xs text-textMuted hover:text-white underline"
+
+            <div className="text-center text-sm text-textMuted">
+              {isSignupMode ? 'Already have an account?' : "Don't have an account?"}{' '}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignupMode(!isSignupMode);
+                  setError(null);
+                }}
+                disabled={isLoading}
+                className="text-accent hover:underline font-semibold disabled:opacity-50"
+              >
+                {isSignupMode ? 'Sign In' : 'Sign Up'}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCloseEmailForm}
+              disabled={isLoading}
+              className="w-full text-xs text-textMuted hover:text-white underline disabled:opacity-50"
             >
-              Go back
+              Back to login options
             </button>
           </form>
         )}
 
-        <div className="mt-8 pt-6 border-t border-border text-xs text-textMuted flex justify-center gap-4">
-          <button onClick={() => onViewLegal('terms')} className="underline hover:text-white">Terms</button>
-          <span>&bull;</span>
-          <button onClick={() => onViewLegal('privacy')} className="underline hover:text-white">Privacy Policy</button>
+        <div className="mt-8 pt-6 border-t border-border/50">
+          <p className="text-xs text-textMuted">
+            By signing up, you agree to our{' '}
+            <button
+              onClick={() => onViewLegal('terms')}
+              className="text-accent hover:underline"
+            >
+              Terms of Service
+            </button>
+            {' '}and{' '}
+            <button
+              onClick={() => onViewLegal('privacy')}
+              className="text-accent hover:underline"
+            >
+              Privacy Policy
+            </button>
+          </p>
         </div>
       </div>
     </div>
