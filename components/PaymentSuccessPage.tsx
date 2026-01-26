@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, LogIn, ArrowRight } from 'lucide-react';
+import { Check, LogIn } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { UserPlan } from '../types';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -8,20 +8,25 @@ import { db } from '../src/lib/firebase';
 interface PaymentSuccessPageProps {
   onComplete: (plan: string) => void;
   onOpenLoginModal?: () => void;
-  onNavigateToDashboard?: () => void;
 }
 
-const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ 
-  onComplete, 
-  onOpenLoginModal,
-  onNavigateToDashboard 
-}) => {
+const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete, onOpenLoginModal }) => {
   const { user, isLoading } = useAuth();
   const [progress, setProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
-  const [redirectFailed, setRedirectFailed] = useState(false);
+
+  // CRITICAL: Save plan to localStorage immediately on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get('plan');
+    
+    if (plan && ['clone', 'syndicate'].includes(plan)) {
+      localStorage.setItem('pendingPlan', plan);
+      console.log(`✅ Saved pending plan to localStorage: ${plan}`);
+    }
+  }, []); // Empty dependency array - run ONCE on mount
 
   useEffect(() => {
     // Animate progress bar
@@ -57,31 +62,24 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({
 
         // User IS logged in and plan is valid - update Firestore
         const userDocRef = doc(db, 'users', user.id);
-        
-        try {
-          // Try to update Firestore
-          await updateDoc(userDocRef, {
-            plan: plan as UserPlan
-          });
-          console.log("✅ Database update successful");
-        } catch (dbError: any) {
-          // Database update failed, but we still need to redirect the user
-          console.error("⚠️ Database update failed:", dbError);
-          // Don't throw - we'll handle this in finally
-        }
-        
-        // Success: show completion state
+        await updateDoc(userDocRef, {
+          plan: plan as UserPlan
+        });
+
+        // CRITICAL: Remove pending plan from localStorage after successful update
+        localStorage.removeItem('pendingPlan');
+        console.log('✅ Cleared pendingPlan from localStorage');
+
+        // Success: wait 3 seconds and redirect
         setError(null);
-        setIsProcessing(false);
-        
+        setTimeout(() => {
+          setIsProcessing(false);
+          onComplete(plan);
+        }, 3000);
       } catch (error: any) {
-        console.error("❌ Payment processing error:", error);
-        setError(`Error: ${error.message || 'Unknown error'}`);
+        console.error("Plan update failed:", error);
+        setError(`Update failed: ${error.message || 'Unknown error'}`);
         setIsProcessing(false);
-      } finally {
-        // CRITICAL: This runs regardless of success/failure
-        // Set flag to show manual redirect button after timeout
-        setRedirectFailed(true);
       }
     };
 
@@ -90,23 +88,6 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({
       handleUpgrade();
     }
   }, [user, isLoading, onComplete]);
-
-  // SAFETY TIMEOUT: Force redirect after 4 seconds if it hasn't happened yet
-  useEffect(() => {
-    if (redirectFailed) {
-      const timeoutId = setTimeout(() => {
-        console.log("🔔 Safety timeout: Forcing redirect to dashboard");
-        if (onNavigateToDashboard) {
-          onNavigateToDashboard();
-        } else {
-          // Fallback: Direct navigation
-          window.location.href = '/dashboard';
-        }
-      }, 4000);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [redirectFailed, onNavigateToDashboard]);
 
   // Show spinner while auth is loading
   if (isLoading) {
@@ -180,34 +161,16 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({
         Upgrading your account...
       </p>
       
-      <div className="flex flex-col items-center gap-4 w-full max-w-xs">
+      <div className="flex flex-col items-center gap-2 w-full max-w-xs">
         <div className="w-full h-1 bg-surface border border-border rounded-full overflow-hidden">
           <div 
             className="h-full bg-green-500 transition-all duration-[2000ms] ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className="text-xs font-mono text-green-400/80 uppercase tracking-widest animate-pulse">
+        <span className="text-xs font-mono text-green-400/80 uppercase tracking-widest mt-2 animate-pulse">
           Syncing Database...
         </span>
-
-        {/* SAFETY BUTTON: Manual redirect if automatic redirect fails */}
-        {redirectFailed && (
-          <button
-            onClick={() => {
-              console.log("🔘 User clicked manual redirect button");
-              if (onNavigateToDashboard) {
-                onNavigateToDashboard();
-              } else {
-                window.location.href = '/dashboard';
-              }
-            }}
-            className="mt-6 px-6 py-3 bg-accent text-black font-bold rounded-lg hover:bg-white transition-all shadow-lg flex items-center gap-2 w-full justify-center"
-          >
-            <ArrowRight size={18} />
-            Click here if not redirected automatically
-          </button>
-        )}
       </div>
     </div>
   );

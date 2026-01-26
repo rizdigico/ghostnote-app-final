@@ -13,7 +13,7 @@ import {
   onAuthStateChanged,
   type AuthError,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from './src/lib/firebase';
 
 interface AuthContextType {
@@ -64,22 +64,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Handle redirect result from Google OAuth
+  // CRITICAL: Handle Google OAuth redirect result ONCE on mount
   useEffect(() => {
-    const handleRedirectResult = async () => {
+    const handleGoogleRedirectResult = async () => {
       try {
+        console.log('🔍 Checking for Google OAuth redirect result...');
         const result = await getRedirectResult(auth);
+        
         if (result?.user) {
-          // User just signed in via redirect, ensure they exist in database
-          await ensureUserDocument(result.user);
+          console.log('✅ Google OAuth redirect detected! User:', result.user.email);
+          // User just came back from Google - ensure they exist in database
+          const userData = await ensureUserDocument(result.user);
+          setUser(userData);
+          console.log('✅ User document ensured in Firestore');
+          // Page will now show dashboard via router.push in useEffect below
+        } else {
+          console.log('ℹ️ No redirect result found (normal page load)');
         }
-      } catch (error) {
-        console.error("Failed to handle redirect result:", error);
+      } catch (error: any) {
+        console.error('❌ Failed to handle Google redirect result:', error);
+        // CRITICAL: Reset loading state to prevent button from getting stuck
+        setIsLoading(false);
+        setAuthError('Failed to complete Google login. Please try again.');
       }
     };
     
-    handleRedirectResult();
-  }, []);
+    handleGoogleRedirectResult();
+  }, []); // Run ONCE on mount
 
   // Listen to Firebase auth state changes
   useEffect(() => {
@@ -87,7 +98,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         if (firebaseUser) {
           // User is signed in - ensure user document exists
-          await ensureUserDocument(firebaseUser);
+          const userData = await ensureUserDocument(firebaseUser);
+          
+          // PENDING PLAN RECOVERY: Check if there's a pending plan upgrade
+          const pendingPlan = localStorage.getItem('pendingPlan');
+          if (pendingPlan && ['clone', 'syndicate'].includes(pendingPlan)) {
+            try {
+              console.log(`🔄 Recovering pending plan upgrade: ${pendingPlan}`);
+              const userDocRef = doc(db, 'users', firebaseUser.uid);
+              await updateDoc(userDocRef, {
+                plan: pendingPlan as UserPlan
+              });
+              // Remove after successful update to prevent infinite updates
+              localStorage.removeItem('pendingPlan');
+              console.log('✅ Pending plan upgrade recovered and applied!');
+            } catch (pendingPlanError) {
+              console.error('⚠️ Failed to recover pending plan:', pendingPlanError);
+              // Don't block auth - user can manually retry upgrade
+            }
+          }
           
           // Subscribe to real-time updates from Firestore
           const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -119,13 +148,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     setAuthError(null);
     try {
-      await signInWithRedirect(auth, googleProvider);
-      // User will be redirected to Google, then back to this page with redirect result
-      // The handleRedirectResult useEffect will process the login
+      // DO NOT AWAIT - signInWithRedirect unloads the page
+      // The redirect result will be handled by the useEffect on page reload
+      signInWithRedirect(auth, googleProvider);
+      console.log('🔄 Redirecting to Google OAuth...');
+      // Page will unload here, no code after this runs
     } catch (error: any) {
+      // This catch is for synchronous errors only
       const errorMessage = error?.message || 'Failed to sign in with Google';
       setAuthError(errorMessage);
-      console.error("Google login failed:", error);
+      console.error("Google login error:", error);
       setIsLoading(false);
     }
   };
