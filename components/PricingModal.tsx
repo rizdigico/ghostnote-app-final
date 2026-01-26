@@ -14,10 +14,12 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
   if (!isOpen) return null;
 
   const handlePlanSelection = (planId: UserPlan) => {
+    const successUrl = encodeURIComponent('https://ghostnote.site/payment-success');
+    
     if (planId === 'clone') {
-      window.location.href = 'https://buy.stripe.com/aFa28sbSo9iQ3tv9jK5Vu01?client_reference_id=clone';
+      window.location.href = `https://buy.stripe.com/aFa28sbSo9iQ3tv9jK5Vu01?client_reference_id=clone&success_url=${successUrl}?plan=clone`;
     } else if (planId === 'syndicate') {
-      window.location.href = 'https://buy.stripe.com/dRm8wQ5u0dz63tv3Zq5Vu00?client_reference_id=syndicate';
+      window.location.href = `https://buy.stripe.com/dRm8wQ5u0dz63tv3Zq5Vu00?client_reference_id=syndicate&success_url=${successUrl}?plan=syndicate`;
     } else {
       onSelectPlan(planId);
     }

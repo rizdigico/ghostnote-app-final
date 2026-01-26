@@ -11,7 +11,7 @@ import {
   onAuthStateChanged,
   type AuthError,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from './src/lib/firebase';
 
 interface AuthContextType {
@@ -68,16 +68,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         if (firebaseUser) {
           // User is signed in - ensure user document exists
-          const userData = await ensureUserDocument(firebaseUser);
-          setUser(userData);
+          await ensureUserDocument(firebaseUser);
+          
+          // Subscribe to real-time updates from Firestore
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+              setUser(docSnap.data() as User);
+            }
+            setIsLoading(false);
+          });
+
+          // Return cleanup function for snapshot subscription
+          return () => unsubscribeSnapshot();
         } else {
           // User is signed out
           setUser(null);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error("Failed to process auth state:", error);
         setUser(null);
-      } finally {
         setIsLoading(false);
       }
     });
