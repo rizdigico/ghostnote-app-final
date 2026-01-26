@@ -11,18 +11,25 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [isEmailMode, setIsEmailMode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
-    // Mock Google Login
-    await login('demo@ghostnote.ai');
-    onSuccess();
+    try {
+      setError(null);
+      await login();
+      onSuccess();
+    } catch (err) {
+      setError('Failed to sign in with Google. Please try again.');
+      console.error(err);
+    }
   };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
-    await login(email);
-    onSuccess();
+    // Note: Firebase Google Auth is the primary method now
+    // Email login would require additional Firebase setup
+    setError('Email login requires additional setup. Please use Google login instead.');
   };
 
   return (
@@ -39,12 +46,18 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
           <p className="text-textMuted text-sm mt-2">Log in to access your Brand DNA.</p>
         </div>
 
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded text-red-200 text-sm">
+            {error}
+          </div>
+        )}
+
         {!isEmailMode ? (
           <div className="space-y-4">
             <button
               onClick={handleGoogleLogin}
               disabled={isLoading}
-              className="w-full bg-white text-black font-bold py-3 px-4 rounded-md flex items-center justify-center gap-3 hover:bg-gray-200 transition-colors"
+              className="w-full bg-white text-black font-bold py-3 px-4 rounded-md flex items-center justify-center gap-3 hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <span className="animate-pulse">Connecting...</span>
@@ -94,13 +107,17 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
                 className="w-full bg-background border border-border rounded-md p-3 text-textMain placeholder-textMuted/30 focus:border-accent focus:outline-none"
               />
             </div>
-             {/* Note: Mock login doesn't require password, simplifying for demo */}
+             {/* Note: Email login currently not supported - use Google OAuth */}
+            <p className="text-xs text-textMuted">
+              Email authentication coming soon. For now, please use Google sign-in.
+            </p>
             <button
-              type="submit"
+              type="button"
+              onClick={handleGoogleLogin}
               disabled={isLoading}
-              className="w-full bg-accent text-black font-bold py-3 px-4 rounded-md flex items-center justify-center gap-2 hover:bg-white transition-colors"
+              className="w-full bg-accent text-black font-bold py-3 px-4 rounded-md flex items-center justify-center gap-2 hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "Logging in..." : "Access Dashboard"}
+              {isLoading ? "Signing in..." : "Sign in with Google"}
               {!isLoading && <ArrowRight size={16} />}
             </button>
             

@@ -1,11 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserPlan } from './types';
 import { dbService } from './dbService';
+import { auth, googleProvider } from './src/lib/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from './src/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string) => Promise<void>;
+  login: () => Promise<void>;
   logout: () => Promise<void>;
   updatePlan: (plan: UserPlan) => Promise<void>;
   deductCredit: () => Promise<void>;
@@ -20,63 +24,102 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Check for existing session on mount
+  // Listen to Firebase auth state changes
   useEffect(() => {
-    const initAuth = async () => {
-      // In a real app, this would check Firebase/Supabase auth state
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
-        const savedSession = localStorage.getItem('ghostnote_user_session');
-        if (savedSession) {
-          const parsedUser = JSON.parse(savedSession);
-          if (parsedUser && typeof parsedUser === 'object') {
-            setUser(parsedUser);
+        if (firebaseUser) {
+          // User is signed in
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+
+          if (userDocSnap.exists()) {
+            // User document exists, load it
+            const userData = userDocSnap.data() as User;
+            setUser(userData);
+          } else {
+            // Create new user document with default data
+            const newUser: User = {
+              id: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              plan: 'echo',
+              credits: 5,
+              joinedDate: new Date().toISOString(),
+              instagramConnected: false,
+            };
+            await setDoc(userDocRef, newUser);
+            setUser(newUser);
           }
+        } else {
+          // User is signed out
+          setUser(null);
         }
       } catch (error) {
-        console.error("Failed to recover session:", error);
-        // Clear corrupted session to prevent boot loop
-        localStorage.removeItem('ghostnote_user_session');
+        console.error("Failed to process auth state:", error);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    };
-    initAuth();
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const login = async (email: string) => {
+  const login = async () => {
     setIsLoading(true);
     try {
-      const userData = await dbService.login(email);
-      setUser(userData);
+      await signInWithPopup(auth, googleProvider);
+      // User state will be updated via onAuthStateChanged
     } catch (error) {
       console.error("Login failed", error);
-    } finally {
       setIsLoading(false);
     }
   };
 
   const logout = async () => {
     setIsLoading(true);
-    await dbService.logout();
-    setUser(null);
-    setIsLoading(false);
+    try {
+      await signOut(auth);
+      setUser(null);
+    } catch (error) {
+      console.error("Logout failed", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const updatePlan = async (plan: UserPlan) => {
     if (!user) return;
-    const updatedUser = await dbService.updateUserPlan(user.id, plan);
-    setUser(updatedUser);
+    try {
+      const userDocRef = doc(db, 'users', user.id);
+      const updatedUser = { ...user, plan };
+      await setDoc(userDocRef, updatedUser);
+      setUser(updatedUser);
+    } catch (error) {
+      console.error("Failed to update plan", error);
+    }
   };
 
   const deductCredit = async () => {
-      if (!user) return;
-      const updatedUser = await dbService.deductCredit(user.id);
+    if (!user) return;
+    try {
+      const userDocRef = doc(db, 'users', user.id);
+      const newCredits = Math.max(0, user.credits - 1);
+      const updatedUser = { ...user, credits: newCredits };
+      await setDoc(userDocRef, updatedUser);
       setUser(updatedUser);
+    } catch (error) {
+      console.error("Failed to deduct credit", error);
+    }
   }
 
   const toggleInstagram = async () => {
     if (!user) return;
     try {
-      const updatedUser = await dbService.toggleInstagramConnection(user.id);
+      const userDocRef = doc(db, 'users', user.id);
+      const updatedUser = { ...user, instagramConnected: !user.instagramConnected };
+      await setDoc(userDocRef, updatedUser);
       setUser(updatedUser);
     } catch (error) {
       console.error("Failed to toggle Instagram", error);
@@ -87,25 +130,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
     setIsLoading(true);
     try {
-        await dbService.deleteAccount(user.id);
-        setUser(null);
+      const userDocRef = doc(db, 'users', user.id);
+      await setDoc(userDocRef, {}, { merge: false }); // Delete by setting empty
+      await signOut(auth);
+      setUser(null);
     } catch (e) {
-        console.error("Failed to delete account", e);
+      console.error("Failed to delete account", e);
     } finally {
-        setIsLoading(false);
+      setIsLoading(false);
     }
   }
 
   const generateApiKey = async () => {
     if (!user) return;
-    // Note: We don't set global loading here to allow UI to handle specific button loading state if needed,
-    // but in this mock we update user state instantly.
     try {
-        const apiKey = await dbService.generateApiKey(user.id);
-        setUser({ ...user, apiKey });
+      const apiKey = 'key_' + Math.random().toString(36).substr(2, 32);
+      const userDocRef = doc(db, 'users', user.id);
+      const updatedUser = { ...user, apiKey };
+      await setDoc(userDocRef, updatedUser);
+      setUser(updatedUser);
     } catch (e) {
-        console.error("Failed to generate API key", e);
-        throw e;
+      console.error("Failed to generate API key", e);
+      throw e;
     }
   }
 
