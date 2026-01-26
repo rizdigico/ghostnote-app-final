@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBSLWJHe6V8CkF7egy3lg5MCh-kxwK1Ks0",
+  apiKey: "AIzaSyCKgcw8PnQpd_MJebEgqG9FBUiqD5nUG-s",
   authDomain: "ghostnoteai.firebaseapp.com",
   projectId: "ghostnoteai",
   storageBucket: "ghostnoteai.firebasestorage.app",
