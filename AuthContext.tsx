@@ -4,6 +4,8 @@ import { dbService } from './dbService';
 import { auth } from './src/lib/firebase';
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -62,6 +64,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Handle redirect result from Google OAuth
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+          // User just signed in via redirect, ensure they exist in database
+          await ensureUserDocument(result.user);
+        }
+      } catch (error) {
+        console.error("Failed to handle redirect result:", error);
+      }
+    };
+    
+    handleRedirectResult();
+  }, []);
+
   // Listen to Firebase auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -100,8 +119,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     setAuthError(null);
     try {
-      await signInWithPopup(auth, googleProvider);
-      // User state will be updated via onAuthStateChanged
+      await signInWithRedirect(auth, googleProvider);
+      // User will be redirected to Google, then back to this page with redirect result
+      // The handleRedirectResult useEffect will process the login
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to sign in with Google';
       setAuthError(errorMessage);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, LogIn, ArrowRight } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { UserPlan } from '../types';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -7,13 +7,21 @@ import { db } from '../src/lib/firebase';
 
 interface PaymentSuccessPageProps {
   onComplete: (plan: string) => void;
+  onOpenLoginModal?: () => void;
+  onNavigateToDashboard?: () => void;
 }
 
-const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete }) => {
+const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ 
+  onComplete, 
+  onOpenLoginModal,
+  onNavigateToDashboard 
+}) => {
   const { user, isLoading } = useAuth();
   const [progress, setProgress] = useState(0);
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [redirectFailed, setRedirectFailed] = useState(false);
 
   useEffect(() => {
     // Animate progress bar
@@ -30,43 +38,75 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete }) =
           return; // Will retry when isLoading changes
         }
 
-        // Ensure user is authenticated
-        if (!user) {
-          setError('Not authenticated. Redirecting to login...');
-          setTimeout(() => onComplete('error'), 2000);
-          return;
-        }
-
         // Validate plan from query parameter
         if (!plan || !['clone', 'syndicate'].includes(plan)) {
           setError('Invalid plan. Redirecting to dashboard...');
+          setIsProcessing(false);
           setTimeout(() => onComplete('error'), 2000);
           return;
         }
 
-        // Update Firestore document with the new plan
-        const userDocRef = doc(db, 'users', user.id);
-        await updateDoc(userDocRef, {
-          plan: plan as UserPlan
-        });
-
-        // Success: wait 2 seconds and redirect
-        setTimeout(() => {
+        // If user is not authenticated, show login button and save URL
+        if (!user) {
+          setNeedsLogin(true);
           setIsProcessing(false);
-          onComplete(plan);
-        }, 2000);
-      } catch (error: any) {
-        console.error("Plan update failed:", error);
-        setError(`Update failed: ${error.message || 'Unknown error'}`);
+          // Store the current URL with plan parameter in sessionStorage for after login
+          sessionStorage.setItem('returnUrl', window.location.href);
+          return;
+        }
+
+        // User IS logged in and plan is valid - update Firestore
+        const userDocRef = doc(db, 'users', user.id);
+        
+        try {
+          // Try to update Firestore
+          await updateDoc(userDocRef, {
+            plan: plan as UserPlan
+          });
+          console.log("✅ Database update successful");
+        } catch (dbError: any) {
+          // Database update failed, but we still need to redirect the user
+          console.error("⚠️ Database update failed:", dbError);
+          // Don't throw - we'll handle this in finally
+        }
+        
+        // Success: show completion state
+        setError(null);
         setIsProcessing(false);
+        
+      } catch (error: any) {
+        console.error("❌ Payment processing error:", error);
+        setError(`Error: ${error.message || 'Unknown error'}`);
+        setIsProcessing(false);
+      } finally {
+        // CRITICAL: This runs regardless of success/failure
+        // Set flag to show manual redirect button after timeout
+        setRedirectFailed(true);
       }
     };
 
     // Only process if auth is loaded
-    if (!isLoading && user) {
+    if (!isLoading) {
       handleUpgrade();
     }
   }, [user, isLoading, onComplete]);
+
+  // SAFETY TIMEOUT: Force redirect after 4 seconds if it hasn't happened yet
+  useEffect(() => {
+    if (redirectFailed) {
+      const timeoutId = setTimeout(() => {
+        console.log("🔔 Safety timeout: Forcing redirect to dashboard");
+        if (onNavigateToDashboard) {
+          onNavigateToDashboard();
+        } else {
+          // Fallback: Direct navigation
+          window.location.href = '/dashboard';
+        }
+      }, 4000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [redirectFailed, onNavigateToDashboard]);
 
   // Show spinner while auth is loading
   if (isLoading) {
@@ -80,6 +120,32 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete }) =
         </div>
         <h1 className="text-2xl font-bold text-white mb-3">Authenticating...</h1>
         <p className="text-textMuted">Please wait while we verify your account.</p>
+      </div>
+    );
+  }
+
+  // Show login prompt if user is not authenticated
+  if (needsLogin) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center animate-fade-in-up">
+        <div className="relative mb-8">
+          <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 rounded-full"></div>
+          <div className="w-24 h-24 bg-surface border border-blue-500/50 rounded-full flex items-center justify-center relative z-10">
+            <LogIn size={40} className="text-blue-500 drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]" strokeWidth={2} />
+          </div>
+        </div>
+        <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">Activate Your Upgrade</h1>
+        <p className="text-textMuted text-lg mb-8 max-w-md">
+          Please log in to activate your plan upgrade.
+        </p>
+        
+        <button
+          onClick={onOpenLoginModal}
+          className="px-8 py-3 bg-accent text-black font-bold rounded-lg hover:bg-white transition-all shadow-lg flex items-center gap-2"
+        >
+          <LogIn size={18} />
+          LOG IN TO ACTIVATE
+        </button>
       </div>
     );
   }
@@ -114,16 +180,34 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete }) =
         Upgrading your account...
       </p>
       
-      <div className="flex flex-col items-center gap-2 w-full max-w-xs">
+      <div className="flex flex-col items-center gap-4 w-full max-w-xs">
         <div className="w-full h-1 bg-surface border border-border rounded-full overflow-hidden">
           <div 
             className="h-full bg-green-500 transition-all duration-[2000ms] ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className="text-xs font-mono text-green-400/80 uppercase tracking-widest mt-2 animate-pulse">
+        <span className="text-xs font-mono text-green-400/80 uppercase tracking-widest animate-pulse">
           Syncing Database...
         </span>
+
+        {/* SAFETY BUTTON: Manual redirect if automatic redirect fails */}
+        {redirectFailed && (
+          <button
+            onClick={() => {
+              console.log("🔘 User clicked manual redirect button");
+              if (onNavigateToDashboard) {
+                onNavigateToDashboard();
+              } else {
+                window.location.href = '/dashboard';
+              }
+            }}
+            className="mt-6 px-6 py-3 bg-accent text-black font-bold rounded-lg hover:bg-white transition-all shadow-lg flex items-center gap-2 w-full justify-center"
+          >
+            <ArrowRight size={18} />
+            Click here if not redirected automatically
+          </button>
+        )}
       </div>
     </div>
   );
