@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, AlertTriangle, User as UserIcon, Mail, Calendar, Shield, LifeBuoy, Code, Copy, Check, ExternalLink, Lock, Zap } from 'lucide-react';
+import { X, Trash2, AlertTriangle, User as UserIcon, Mail, Calendar, Shield, LifeBuoy, Code, Copy, Check, ExternalLink, Lock, Zap, AlertCircle } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import ApiDocsViewer from './ApiDocsViewer';
 
@@ -11,7 +11,7 @@ interface AccountModalProps {
 type TabType = 'profile' | 'support' | 'developers';
 
 const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) => {
-  const { user, deleteAccount, generateApiKey } = useAuth();
+  const { user, deleteAccount, generateApiKey, authError } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   
   // Profile State
@@ -168,6 +168,12 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) => {
                             </>
                         ) : (
                             <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-8 text-center animate-fade-in-up">
+                                {authError && (
+                                    <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/30 rounded-lg flex items-start gap-3">
+                                        <AlertCircle size={18} className="text-orange-500 shrink-0 mt-0.5" />
+                                        <p className="text-sm text-orange-200 text-left">{authError}</p>
+                                    </div>
+                                )}
                                 <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
                                     <AlertTriangle size={32} />
                                 </div>

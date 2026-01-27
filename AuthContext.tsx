@@ -11,9 +11,11 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  deleteUser,
+  reauthenticateWithPopup,
   type AuthError,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from './src/lib/firebase';
 
 interface AuthContextType {
@@ -285,19 +287,72 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }
 
   const deleteAccount = async () => {
-    if (!user) return;
+    if (!user || !auth.currentUser) return;
+    
     setIsLoading(true);
+    setAuthError(null);
+    
     try {
-      const userDocRef = doc(db, 'users', user.id);
-      await setDoc(userDocRef, {}, { merge: false }); // Delete by setting empty
-      await signOut(auth);
+      console.log('🔥 Starting nuclear account deletion...');
+      
+      // STEP 1: Force Re-authentication for security
+      console.log('🔐 Step 1: Re-authenticating user...');
+      try {
+        const providers = auth.currentUser.providerData.map(p => p.providerId);
+        console.log('📋 Auth providers:', providers);
+        
+        if (providers.includes('google.com')) {
+          console.log('🔑 Re-authenticating with Google...');
+          await reauthenticateWithPopup(auth.currentUser, new GoogleAuthProvider());
+        } else if (providers.includes('password')) {
+          console.log('⚠️ Email/password user - they should re-login freshly for security');
+          setAuthError('For security, please log out and log back in, then delete your account immediately.');
+          setIsLoading(false);
+          return;
+        }
+      } catch (reAuthError: any) {
+        if (reAuthError.code === 'auth/requires-recent-login') {
+          setAuthError('For security, please Log Out and Log Back In, then try deleting again immediately.');
+          console.error('❌ Re-authentication failed - requires recent login');
+          setIsLoading(false);
+          return;
+        }
+        throw reAuthError;
+      }
+      
+      // STEP 2: Delete Firestore data FIRST (before losing auth permission)
+      console.log('🗑️ Step 2: Deleting Firestore user document...');
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      await deleteDoc(userDocRef);
+      console.log('✅ Firestore user document deleted');
+      
+      // STEP 3: Delete Firebase Auth user LAST
+      console.log('🚀 Step 3: Deleting Firebase Auth user...');
+      await deleteUser(auth.currentUser);
+      console.log('✅ Firebase Auth user deleted');
+      
+      // Cleanup local state
       setUser(null);
-    } catch (e) {
-      console.error("Failed to delete account", e);
+      setAuthError(null);
+      console.log('✅ Account deletion complete - redirecting to home');
+      
+      // Redirect to home after short delay
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
+      
+    } catch (e: any) {
+      console.error('❌ Account deletion failed:', e);
+      
+      if (e.code === 'auth/requires-recent-login') {
+        setAuthError('For security, please Log Out and Log Back In, then try deleting again immediately.');
+      } else {
+        setAuthError(`Deletion failed: ${e.message || 'Unknown error'}`);
+      }
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   const generateApiKey = async () => {
     if (!user) return;
