@@ -35,11 +35,9 @@ export default async function handler(req: Request) {
             : 'gemini-2.5-flash';    // The new "Fast" model
 
         const model = genAI.getGenerativeModel({ 
-          model: modelName,
-          // Keep safety settings disabled so "Angry Chef" works
-          safetySettings: [
-             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                // FIX: Use "gemini-1.5-flash" for everything.
+                // It is the only model that works reliably on the Free Tier without a credit card.
+                const modelName = 'gemini-1.5-flash';
              { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
              { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
           ]
