@@ -28,11 +28,11 @@ export default async function handler(req: Request) {
         // C. Configure Google AI (Manual Mode)
         const genAI = new GoogleGenerativeAI(apiKey);
         
-        // FIX: Use the standard model aliases (no numbers)
-        // These are the most reliable tags that Google maintains.
-        const modelName = plan === 'syndicate' 
-          ? 'gemini-1.5-pro' 
-          : 'gemini-1.5-flash';
+          // --- CRITICAL FIX: UPGRADE TO GEMINI 2.5 ---
+          // Gemini 1.5 is dead. We use 2.5 for Paid and 2.0/2.5 Flash for Free.
+          const modelName = plan === 'syndicate' 
+            ? 'gemini-2.5-pro'       // The new "Smart" model
+            : 'gemini-2.5-flash';    // The new "Fast" model
 
         const model = genAI.getGenerativeModel({ 
           model: modelName,
