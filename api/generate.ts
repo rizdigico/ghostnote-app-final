@@ -1,52 +1,93 @@
 
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 export const config = {
   runtime: 'edge',
 };
 
 export default async function handler(req: Request) {
-  // 1. Setup Headers for Streaming
   const encoder = new TextEncoder();
+
+  if (req.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
+  }
+
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        controller.enqueue(encoder.encode("Initiating GhostNote (Free Tier)...\n\n"));
+        // 1. Get Key
+        // Use the provided OpenRouter API key directly for this session
+        const apiKey = "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";
 
-        if (req.method !== 'POST') {
-          controller.close();
-          return;
-        }
-
+        // 2. Parse Input
         const { prompt, settings } = await req.json();
-           // Use the provided OpenRouter API key directly for this session
-           const apiKey = "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";
+        
+        // 3. Define the Model (Llama 3.3 Free)
+        const modelId = "meta-llama/llama-3.3-70b-instruct:free";
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-        // STANDARD FREE MODEL
-        // Works with new, unverified API keys.
-        const modelName = 'gemini-1.5-flash'; 
+        // This message proves you are running the NEW code
+        controller.enqueue(encoder.encode(`Initiating GhostNote (Llama 3.3)...\n\n`));
 
-        const model = genAI.getGenerativeModel({ 
-          model: modelName,
-          safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
+        // 4. Send Request to OpenRouter
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://ghostnote.site',
+            'X-Title': 'GhostNote',
+          },
+          body: JSON.stringify({
+            model: modelId,
+            messages: [
+              { 
+                role: "system", 
+                content: `You are a professional ghostwriter. Tone: ${settings?.tone || 'Professional'}. Return ONLY the rewritten text.` 
+              },
+              { 
+                role: "user", 
+                content: `Rewrite this text: "${prompt}"` 
+              }
+            ],
+            stream: true, 
+          }),
         });
 
-        const fullPrompt = `
-          You are a Ghostwriter. Rewrite this text to be ${settings?.tone || 'Professional'}.
-          Text: "${prompt}"
-        `;
+        if (!response.ok) {
+           const errText = await response.text();
+           throw new Error(`OpenRouter Error: ${errText}`);
+        }
 
-        const result = await model.generateContentStream(fullPrompt);
+        if (!response.body) throw new Error("No response body");
 
-        for await (const chunk of result.stream) {
-          const text = chunk.text();
-          if (text) controller.enqueue(encoder.encode(text));
+        // 5. Read Stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          buffer += chunk;
+
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed === 'data: [DONE]') continue;
+            
+            if (trimmed.startsWith('data: ')) {
+              try {
+                const json = JSON.parse(trimmed.slice(6));
+                const content = json.choices[0]?.delta?.content;
+                if (content) {
+                  controller.enqueue(encoder.encode(content));
+                }
+              } catch (e) { }
+            }
+          }
         }
 
       } catch (error: any) {
