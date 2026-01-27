@@ -5,9 +5,10 @@ import { UserPlan } from '../types';
 interface LandingPageProps {
   onEnterApp: (plan?: UserPlan) => void;
   onViewLegal: (type: 'terms' | 'privacy') => void;
+  isLoading?: boolean;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLoading = false }) => {
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
@@ -71,12 +72,19 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal }) =>
             <span className="font-bold tracking-widest uppercase text-xs">GhostNote</span>
           </div>
           <div className="flex items-center gap-6">
-             <button onClick={() => onEnterApp('echo')} className="text-sm font-medium text-textMuted hover:text-white transition-colors hidden md:block">Log In</button>
              <button 
-                onClick={() => onEnterApp('echo')}
-                className="bg-white text-black text-xs font-bold px-4 py-2 rounded hover:bg-gray-200 transition-colors uppercase tracking-wide"
+                onClick={() => !isLoading && onEnterApp('echo')} 
+                disabled={isLoading}
+                className="text-sm font-medium text-textMuted hover:text-white transition-colors hidden md:block disabled:opacity-50 disabled:cursor-not-allowed"
              >
-                Launch Now
+                Log In
+             </button>
+             <button 
+                onClick={() => !isLoading && onEnterApp('echo')}
+                disabled={isLoading}
+                className="bg-white text-black text-xs font-bold px-4 py-2 rounded hover:bg-gray-200 transition-colors uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+                {isLoading ? 'Loading...' : 'Launch Now'}
              </button>
           </div>
         </div>
@@ -96,8 +104,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal }) =>
               The first AI that clones your "Linguistic DNA". Upload your past work. Generate new content that actually sounds like YOU.
             </p>
             <button 
-              onClick={() => onEnterApp('clone')}
-              className="bg-accent text-black px-8 py-4 rounded-md font-bold text-sm md:text-base tracking-wide uppercase hover:bg-white hover:shadow-[0_0_20px_rgba(217,249,157,0.5)] transition-all flex items-center gap-2 mx-auto group"
+              onClick={() => !isLoading && onEnterApp('clone')}
+              disabled={isLoading}
+              className="bg-accent text-black px-8 py-4 rounded-md font-bold text-sm md:text-base tracking-wide uppercase hover:bg-white hover:shadow-[0_0_20px_rgba(217,249,157,0.5)] transition-all flex items-center gap-2 mx-auto group disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Clone Your Voice Now <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </button>

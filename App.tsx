@@ -17,7 +17,7 @@ const AppContent: React.FC = () => {
   const [initialPlan, setInitialPlan] = useState<UserPlan>('echo');
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
   const [successPlanName, setSuccessPlanName] = useState<string>('');
-  const { user, updatePlan } = useAuth();
+  const { user, isLoading, updatePlan } = useAuth();
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -36,6 +36,12 @@ const AppContent: React.FC = () => {
   }, [updatePlan]);
 
   const handleEnterApp = async (plan: UserPlan = 'echo') => {
+    // CRITICAL: Guard against clicking before auth is loaded
+    if (isLoading) {
+      console.warn('⚠️ Auth still loading, ignoring click');
+      return;
+    }
+    
     setInitialPlan(plan);
     if (user && plan !== user.plan && plan !== 'echo') {
         await updatePlan(plan);
@@ -126,7 +132,7 @@ const AppContent: React.FC = () => {
   return (
       <>
         {renderAlerts()}
-        <LandingPage onEnterApp={handleEnterApp} onViewLegal={navigateToLegal} />
+        <LandingPage onEnterApp={handleEnterApp} onViewLegal={navigateToLegal} isLoading={isLoading} />
       </>
   );
 };
