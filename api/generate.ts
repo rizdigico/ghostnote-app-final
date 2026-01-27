@@ -25,7 +25,10 @@ export default async function handler(req: Request) {
 
     // 3. Select Model (Paid vs Free)
     const genAI = new GoogleGenAI({ apiKey });
-    const modelName = plan === 'syndicate' ? 'gemini-1.5-pro-latest' : 'gemini-1.5-flash-latest';
+    let modelName = plan === 'syndicate' ? 'gemini-1.5-pro-001' : 'gemini-1.5-flash-001';
+    // Fallback to gemini-pro if 001 models fail
+    // (actual fallback logic would need to be handled in the catch block if needed)
+    console.log("Using Model:", modelName);
 
     // 4. Build the prompt with reference material
     let fullPrompt = `Rewrite the following draft to match the specified style.\n`;
