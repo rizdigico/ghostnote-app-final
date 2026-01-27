@@ -391,24 +391,26 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       }
 
       // Handle streaming response
-      const data = response.body;
-      if (!data) {
-        throw new Error('No response body from stream');
-      }
+      if (!response.body) throw new Error("No response body");
 
-      const reader = data.getReader();
+      const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let done = false;
+
+      console.log("Stream started..."); // Debug Log
 
       while (!done) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
-        const chunkValue = decoder.decode(value);
         
-        // Update the UI state with the new chunk
-        setResultText((prev) => prev + chunkValue);
+        if (value) {
+          const chunkValue = decoder.decode(value, { stream: true });
+          console.log("Chunk received:", chunkValue); // Debug Log to see what comes in
+          setResultText((prev) => prev + chunkValue);
+        }
       }
-
+      console.log("Stream finished.");
+      
       setStatus(RewriteStatus.SUCCESS);
       
       // Post-Processing Logic

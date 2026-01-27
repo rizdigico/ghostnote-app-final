@@ -24,22 +24,31 @@ export default async function handler(req: Request) {
       "${prompt}"
     `;
 
-    // 3. Model Selection (Gemini 1.5 Pro - 002)
+    // 3. Generate Stream (With Safety Filters Disabled)
     const modelId = plan === 'syndicate' 
       ? 'gemini-1.5-pro-002' 
       : 'gemini-1.5-flash-002';
-
-    // 4. Generate Stream
     const result = await streamText({
       model: google(modelId),
       prompt: fullPrompt,
+      // CRITICAL: Allow "Angry" content by disabling safety blocks
+      providerOptions: {
+        google: {
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
+        },
+      },
     });
 
-    // 5. RETURN RAW TEXT STREAM (Critical Fix)
-    // We create a standard Response with the text stream
+    // 4. Return Raw Text
     return new Response(result.textStream, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache',
       },
     });
 
