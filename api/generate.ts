@@ -14,63 +14,65 @@ export default async function handler(req: Request) {
         controller.enqueue(encoder.encode("Initiating GhostNote (Experimental Mode)...\n\n"));
 
         if (req.method !== 'POST') {
-             controller.close();
-             return;
-        }
+            const encoder = new TextEncoder();
+  
+            const readable = new ReadableStream({
+              async start(controller) {
+                try {
+                  controller.enqueue(encoder.encode("Initiating GhostNote (Free Tier)...\n\n"));
 
-        const { prompt, settings } = await req.json();
-        const apiKey = process.env.GOOGLE_API_KEY;
+                  if (req.method !== 'POST') {
+                       controller.close();
+                       return;
+                  }
 
-        if (!apiKey) {
-          controller.enqueue(encoder.encode("[System Error: Missing API Key]"));
-          controller.close();
-          return;
-        }
+                  const { prompt, settings } = await req.json();
+                  const apiKey = process.env.GOOGLE_API_KEY;
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-        // --- BYPASS ATTEMPT ---
-        // Using 'gemini-2.0-flash-exp'.
-        // This public preview model typically ignores the "Prepayment Pending" lock.
-        const modelName = 'gemini-2.0-flash-exp'; 
+                  if (!apiKey) {
+                    controller.enqueue(encoder.encode("[System Error: Missing API Key]"));
+                    controller.close();
+                    return;
+                  }
 
-        const model = genAI.getGenerativeModel({ 
-          model: modelName,
-          // Disable safety filters
-          safetySettings: [
-             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-             { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-          ]
-        });
+                  const genAI = new GoogleGenerativeAI(apiKey);
+        
+                  // STANDARD FREE MODEL
+                  // Works with new, unverified API keys.
+                  const modelName = 'gemini-1.5-flash'; 
 
-        const fullPrompt = `
-          You are a Ghostwriter. Rewrite this text to be ${settings?.tone || 'Professional'}.
-          Text: "${prompt}"
-        `;
+                  const model = genAI.getGenerativeModel({ 
+                    model: modelName,
+                    safetySettings: [
+                       { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                       { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                       { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                       { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                    ]
+                  });
 
-        const result = await model.generateContentStream(fullPrompt);
+                  const fullPrompt = `
+                    You are a Ghostwriter. Rewrite this text to be ${settings?.tone || 'Professional'}.
+                    Text: "${prompt}"
+                  `;
 
-        for await (const chunk of result.stream) {
-          const text = chunk.text();
-          if (text) controller.enqueue(encoder.encode(text));
-        }
+                  const result = await model.generateContentStream(fullPrompt);
 
-      } catch (error: any) {
-        console.error("Stream Error:", error);
-        // If this bypass fails, you have no choice but to pay the $15.
-        if (error.message.includes('429') || error.message.includes('Limit: 0')) {
-             controller.enqueue(encoder.encode(`\n[BLOCKER: The bypass failed. Google has frozen your API Key. You MUST pay the SGD 15.00 top-up to unlock it.]`));
-        } else {
-             controller.enqueue(encoder.encode(`\n[Error: ${error.message}]`));
-        }
-      } finally {
-        controller.close();
-      }
-    },
-  });
+                  for await (const chunk of result.stream) {
+                    const text = chunk.text();
+                    if (text) controller.enqueue(encoder.encode(text));
+                  }
 
-  return new Response(readable, {
-    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-  });
-}
+                } catch (error: any) {
+                  console.error("Stream Error:", error);
+                  controller.enqueue(encoder.encode(`\n[Error: ${error.message}]`));
+                } finally {
+                  controller.close();
+                }
+              },
+            });
+
+            return new Response(readable, {
+              headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            });
+          }
