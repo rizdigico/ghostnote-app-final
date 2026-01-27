@@ -6,6 +6,7 @@ export const config = {
 };
 
 export default async function handler(req: Request) {
+  // 1. Method Check
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }
@@ -13,7 +14,7 @@ export default async function handler(req: Request) {
   try {
     const { prompt, plan, settings } = await req.json();
 
-    // 1. Define the Prompt
+    // 2. Prompt Construction
     const fullPrompt = `
       You are a professional ghostwriter.
       Tone: ${settings?.tone || 'Professional'}
@@ -23,20 +24,24 @@ export default async function handler(req: Request) {
       "${prompt}"
     `;
 
-    // 2. Select Model (Using the @ai-sdk/google provider)
-    // We use the '002' models which are the latest stable versions
+    // 3. Model Selection (Gemini 1.5 Pro - 002)
     const modelId = plan === 'syndicate' 
       ? 'gemini-1.5-pro-002' 
       : 'gemini-1.5-flash-002';
 
-    // 3. Generate Stream (Modern Syntax)
+    // 4. Generate Stream
     const result = await streamText({
       model: google(modelId),
       prompt: fullPrompt,
     });
 
-    // 4. Return Stream
-    return result.toTextStreamResponse();
+    // 5. RETURN RAW TEXT STREAM (Critical Fix)
+    // We create a standard Response with the text stream
+    return new Response(result.textStream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+      },
+    });
 
   } catch (error: any) {
     console.error("API Error:", error);
