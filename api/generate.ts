@@ -11,11 +11,13 @@ export default async function handler(req: Request) {
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        // A. Manual "Handshake" (Proves connection works)
-        controller.enqueue(encoder.encode("Initiating GhostNote protocol...\n\n"));
+        controller.enqueue(encoder.encode("Initiating GhostNote (v2.0 Flash)...\n\n"));
 
-        // B. Parse Input
-        if (req.method !== 'POST') return;
+        if (req.method !== 'POST') {
+          controller.close();
+          return;
+        }
+
         const { prompt, plan, settings } = await req.json();
         const apiKey = process.env.GOOGLE_API_KEY;
 
@@ -25,12 +27,14 @@ export default async function handler(req: Request) {
           return;
         }
 
-        // C. Configure Google AI (Manual Mode)
         const genAI = new GoogleGenerativeAI(apiKey);
-        // Use "gemini-1.5-flash" for everything (Free Tier safe)
-        const modelName = 'gemini-1.5-flash';
-        console.log(`[Server] Using Model: ${modelName}`);
-        const model = genAI.getGenerativeModel({
+        // --- CRITICAL FIX ---
+        // 'gemini-1.5-flash' is dead (404).
+        // 'gemini-2.5-pro' is paid (429).
+        // We use 'gemini-2.0-flash' which is Alive AND Free.
+        const modelName = 'gemini-2.0-flash';
+
+        const model = genAI.getGenerativeModel({ 
           model: modelName,
           safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -45,20 +49,16 @@ export default async function handler(req: Request) {
           Text: "${prompt}"
         `;
 
-        // D. Generate Stream
         const result = await model.generateContentStream(fullPrompt);
 
-        // E. Pump the Chunks
         for await (const chunk of result.stream) {
           const text = chunk.text();
-          if (text) {
-             controller.enqueue(encoder.encode(text));
-          }
+          if (text) controller.enqueue(encoder.encode(text));
         }
 
       } catch (error: any) {
         console.error("Stream Error:", error);
-        // Send the error to the frontend so we can see it!
+        // If 2.0 fails, fallback to "gemini-pro" (The original backup)
         controller.enqueue(encoder.encode(`\n[Error: ${error.message}]`));
       } finally {
         controller.close();
@@ -67,9 +67,6 @@ export default async function handler(req: Request) {
   });
 
   return new Response(readable, {
-    headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-cache',
-    },
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
   });
 }
