@@ -26,6 +26,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   const [intensity, setIntensity] = useState<number>(50);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'error' | 'success'>('error');
   
   // Cooldown Logic for Free Plan
   const [isCooldown, setIsCooldown] = useState<boolean>(false);
@@ -298,7 +300,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       }
   };
 
-  // Handle Rewrite Action
+  // Handle Rewrite Action with Streaming
   const handleRewrite = async () => {
     if (isCooldown) return;
 
@@ -353,7 +355,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
           return;
       }
 
-      // SINGLE PROCESSING PATH
+      // SINGLE PROCESSING PATH - Use Streaming API
       const filePayload: ReferenceFile | null = activeTab === 'file' && referenceFile 
         ? { data: referenceFile.data, mimeType: referenceFile.mimeType } 
         : null;
@@ -362,8 +364,44 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
 
       const currentIntensity = userPlan !== 'echo' ? intensity : 50;
 
-      const result = await rewriteContent(draftText, textPayload, filePayload, currentIntensity, modelToUse);
-      setResultText(result);
+      // Prepare request payload
+      const requestPayload = {
+        draft: draftText,
+        referenceText: textPayload,
+        referenceFile: filePayload,
+        intensity: currentIntensity,
+        model: modelToUse,
+        plan: userPlan,
+      };
+
+      // Call streaming API
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestPayload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Stream generation failed');
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let streamText = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value, { stream: true });
+          streamText += chunk;
+          setResultText(streamText); // Update UI in real-time
+        }
+      }
+
       setStatus(RewriteStatus.SUCCESS);
       
       // Post-Processing Logic
@@ -390,6 +428,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     } catch (error: any) {
       setStatus(RewriteStatus.ERROR);
       setErrorMessage(error.message || "Generation failed. Try again.");
+      setToastType('error');
+      setToastMessage(error.message || "Generation failed. Try again.");
+      
+      // Auto-clear toast after 5 seconds
+      setTimeout(() => setToastMessage(null), 5000);
     }
   };
 
@@ -941,6 +984,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
              </div>
           </div>
         </div>
+
+        {/* Toast Notification */}
+        {toastMessage && (
+          <div className={`fixed bottom-6 left-6 max-w-sm p-4 rounded-lg shadow-lg animate-fade-in-up flex items-center gap-3 ${
+            toastType === 'error' 
+              ? 'bg-red-900/80 border border-red-700 text-red-100' 
+              : 'bg-green-900/80 border border-green-700 text-green-100'
+          }`}>
+            {toastType === 'error' && <AlertCircle size={20} className="flex-shrink-0" />}
+            {toastType === 'success' && <Check size={20} className="flex-shrink-0" />}
+            <p className="text-sm">{toastMessage}</p>
+          </div>
+        )}
       </main>
     </div>
   );
