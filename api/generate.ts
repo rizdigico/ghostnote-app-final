@@ -28,13 +28,15 @@ export default async function handler(req: Request) {
         // C. Configure Google AI (Manual Mode)
         const genAI = new GoogleGenerativeAI(apiKey);
         
-        // Use the reliable "001" version to avoid 404s
+        // FIX: Use the standard model aliases (no numbers)
+        // These are the most reliable tags that Google maintains.
         const modelName = plan === 'syndicate' 
-          ? 'gemini-1.5-pro-001' 
-          : 'gemini-1.5-flash-001';
+          ? 'gemini-1.5-pro' 
+          : 'gemini-1.5-flash';
 
         const model = genAI.getGenerativeModel({ 
           model: modelName,
+          // Keep safety settings disabled so "Angry Chef" works
           safetySettings: [
              { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
              { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
