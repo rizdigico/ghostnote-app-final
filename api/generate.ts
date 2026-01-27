@@ -27,19 +27,16 @@ export default async function handler(req: Request) {
 
         // C. Configure Google AI (Manual Mode)
         const genAI = new GoogleGenerativeAI(apiKey);
-        
-          // --- CRITICAL FIX: UPGRADE TO GEMINI 2.5 ---
-          // Gemini 1.5 is dead. We use 2.5 for Paid and 2.0/2.5 Flash for Free.
-          const modelName = plan === 'syndicate' 
-            ? 'gemini-2.5-pro'       // The new "Smart" model
-            : 'gemini-2.5-flash';    // The new "Fast" model
-
-        const model = genAI.getGenerativeModel({ 
-                // FIX: Use "gemini-1.5-flash" for everything.
-                // It is the only model that works reliably on the Free Tier without a credit card.
-                const modelName = 'gemini-1.5-flash';
-             { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-             { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+        // Use "gemini-1.5-flash" for everything (Free Tier safe)
+        const modelName = 'gemini-1.5-flash';
+        console.log(`[Server] Using Model: ${modelName}`);
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
           ]
         });
 
