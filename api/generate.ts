@@ -19,8 +19,8 @@ export default async function handler(req: Request) {
         }
 
         const { prompt, settings } = await req.json();
-        // Use the provided API key directly for this session
-        const apiKey = "AIzaSyAgyh-ssdcf-kSpXKlmnbqTr8I3NT4RblI";
+           // Use the provided OpenRouter API key directly for this session
+           const apiKey = "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";
 
         const genAI = new GoogleGenerativeAI(apiKey);
         // STANDARD FREE MODEL
