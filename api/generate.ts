@@ -25,10 +25,23 @@ export default async function handler(req: Request) {
 
     // 3. Select Model (Paid vs Free)
     const genAI = new GoogleGenAI({ apiKey });
-    let modelName = plan === 'syndicate' ? 'gemini-1.5-pro-001' : 'gemini-1.5-flash-001';
-    // Fallback to gemini-pro if 001 models fail
-    // (actual fallback logic would need to be handled in the catch block if needed)
-    console.log("Using Model:", modelName);
+    let modelName = plan === 'syndicate' ? 'gemini-1.5-pro-002' : 'gemini-1.5-flash-002';
+    let result;
+    try {
+      console.log("Using Model:", modelName);
+      result = await genAI.models.generateContentStream({
+        model: modelName,
+        contents: fullPrompt,
+      });
+    } catch (modelErr) {
+      // Fallback to gemini-pro if 002 models fail
+      modelName = 'gemini-pro';
+      console.log("Model fallback. Using:", modelName);
+      result = await genAI.models.generateContentStream({
+        model: modelName,
+        contents: fullPrompt,
+      });
+    }
 
     // 4. Build the prompt with reference material
     let fullPrompt = `Rewrite the following draft to match the specified style.\n`;
@@ -44,12 +57,6 @@ export default async function handler(req: Request) {
 
     fullPrompt += `Draft to Rewrite:\n${draft}`;
 
-    // 5. Generate Stream using generateContentStream
-    const result = await genAI.models.generateContentStream({
-      model: modelName,
-      contents: fullPrompt,
-    });
-    
     // 6. Extract text chunks and stream them
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
