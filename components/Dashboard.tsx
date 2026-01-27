@@ -382,24 +382,26 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Stream generation failed');
+        throw new Error(`Stream generation failed: ${response.statusText}`);
       }
 
       // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let streamText = '';
+      const data = response.body;
+      if (!data) {
+        throw new Error('No response body from stream');
+      }
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value, { stream: true });
-          streamText += chunk;
-          setResultText(streamText); // Update UI in real-time
-        }
+      const reader = data.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        const chunkValue = decoder.decode(value);
+        
+        // Update the UI state with the new chunk
+        setResultText((prev) => prev + chunkValue);
       }
 
       setStatus(RewriteStatus.SUCCESS);
