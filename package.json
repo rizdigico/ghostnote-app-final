@@ -14,13 +14,15 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.13",
     "@google/genai": "^1.38.0",
     "ai": "^6.0.50",
     "firebase": "^12.8.0",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.3",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.19.7",

@@ -1,5 +1,5 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GoogleGenerativeAIStream, StreamingTextResponse } from 'ai';
+import { google } from '@ai-sdk/google';
+import { streamText } from 'ai';
 
 export const config = {
   runtime: 'edge',
@@ -12,13 +12,8 @@ export default async function handler(req: Request) {
 
   try {
     const { prompt, plan, settings } = await req.json();
-    const apiKey = process.env.GOOGLE_API_KEY;
 
-    if (!apiKey) {
-      return new Response('Missing API Key', { status: 500 });
-    }
-
-    // 1. DEFINE THE PROMPT FIRST (Fixes the variable error)
+    // 1. Define the Prompt
     const fullPrompt = `
       You are a professional ghostwriter.
       Tone: ${settings?.tone || 'Professional'}
@@ -28,21 +23,20 @@ export default async function handler(req: Request) {
       "${prompt}"
     `;
 
-    // 2. SELECT THE MODEL (Using the stable 002 versions)
-    const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // Use the "002" models to avoid 404 errors
-    const modelName = plan === 'syndicate' 
+    // 2. Select Model (Using the @ai-sdk/google provider)
+    // We use the '002' models which are the latest stable versions
+    const modelId = plan === 'syndicate' 
       ? 'gemini-1.5-pro-002' 
       : 'gemini-1.5-flash-002';
-      
-    const model = genAI.getGenerativeModel({ model: modelName });
 
-    // 3. GENERATE STREAM
-    const geminiStream = await model.generateContentStream(fullPrompt);
-    const stream = GoogleGenerativeAIStream(geminiStream);
+    // 3. Generate Stream (Modern Syntax)
+    const result = await streamText({
+      model: google(modelId),
+      prompt: fullPrompt,
+    });
 
-    return new StreamingTextResponse(stream);
+    // 4. Return Stream
+    return result.toDataStreamResponse();
 
   } catch (error: any) {
     console.error("API Error:", error);
