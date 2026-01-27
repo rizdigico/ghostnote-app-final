@@ -45,18 +45,25 @@ export default async function handler(req: Request) {
               },
               { 
                 role: "user", 
-                content: `Rewrite this text: "${prompt}"` 
+                content: `Rewrite this text: \"${prompt}\"` 
               }
             ],
             stream: true, 
           }),
         });
 
-                      // 1. DIAGNOSE THE KEY
-                      // Use the provided OpenRouter API key directly for this session
-                      const apiKey = "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";
-           const errText = await response.text();
-           throw new Error(`OpenRouter Error: ${errText}`);
+        // Key Doctor: Diagnose key errors
+        if (!response.ok) {
+          const errText = await response.text();
+          let diag = `OpenRouter Error: ${errText}`;
+          if (errText.includes('Invalid authentication credentials')) {
+            diag += '\n[Key Doctor] Your OpenRouter API key is invalid or expired.';
+          } else if (errText.includes('quota')) {
+            diag += '\n[Key Doctor] Your OpenRouter account has hit a quota or limit.';
+          }
+
+          controller.enqueue(encoder.encode(`\n${diag}`));
+          return;
         }
 
         if (!response.body) throw new Error("No response body");
@@ -87,7 +94,7 @@ export default async function handler(req: Request) {
                 if (content) {
                   controller.enqueue(encoder.encode(content));
                 }
-              } catch (e) { }
+              } catch (e) { /* ignore JSON parse errors */ }
             }
           }
         }
