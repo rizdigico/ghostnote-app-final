@@ -25,7 +25,7 @@ export default async function handler(req: Request) {
 
     // 3. Select Model (Paid vs Free)
     const genAI = new GoogleGenAI({ apiKey });
-    const modelName = plan === 'syndicate' ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+    const modelName = plan === 'syndicate' ? 'gemini-1.5-pro-latest' : 'gemini-1.5-flash-latest';
 
     // 4. Build the prompt with reference material
     let fullPrompt = `Rewrite the following draft to match the specified style.\n`;
