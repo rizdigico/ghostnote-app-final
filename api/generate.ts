@@ -36,7 +36,7 @@ export default async function handler(req: Request) {
     });
 
     // 4. Return Stream
-    return result.toDataStreamResponse();
+    return result.toTextStreamResponse();
 
   } catch (error: any) {
     console.error("API Error:", error);
