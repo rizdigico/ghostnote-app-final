@@ -382,7 +382,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       });
 
       if (!response.ok) {
-        throw new Error(`Stream generation failed: ${response.statusText}`);
+        // Try to read the error message from the server
+        const errorBody = await response.text();
+        console.error("Server Error Body:", errorBody);
+        
+        // Throw a detailed error we can see in the Toast
+        throw new Error(`Server Error (${response.status}): ${errorBody || response.statusText}`);
       }
 
       // Handle streaming response
