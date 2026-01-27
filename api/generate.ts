@@ -1,89 +1,51 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAIStream, StreamingTextResponse } from 'ai';
 
 export const config = {
-  runtime: 'edge', // This is critical for streaming!
+  runtime: 'edge',
 };
 
 export default async function handler(req: Request) {
-  // 1. Handle Method Security
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
   try {
-    // 2. Parse the Input
-    const { draft, referenceText, referenceFile, intensity, model, plan } = await req.json();
-    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const { prompt, plan, settings } = await req.json();
+    const apiKey = process.env.GOOGLE_API_KEY;
 
     if (!apiKey) {
       return new Response('Missing API Key', { status: 500 });
     }
 
-    if (!draft) {
-      return new Response('Draft text is required', { status: 400 });
-    }
+    // 1. DEFINE THE PROMPT FIRST (Fixes the variable error)
+    const fullPrompt = `
+      You are a professional ghostwriter.
+      Tone: ${settings?.tone || 'Professional'}
+      Task: Rewrite the following text.
+      
+      Original Text:
+      "${prompt}"
+    `;
 
-    // 3. Select Model (Paid vs Free)
-    const genAI = new GoogleGenAI({ apiKey });
-    let modelName = plan === 'syndicate' ? 'gemini-1.5-pro-002' : 'gemini-1.5-flash-002';
-    let result;
-    try {
-      console.log("Using Model:", modelName);
-      result = await genAI.models.generateContentStream({
-        model: modelName,
-        contents: fullPrompt,
-      });
-    } catch (modelErr) {
-      // Fallback to gemini-pro if 002 models fail
-      modelName = 'gemini-pro';
-      console.log("Model fallback. Using:", modelName);
-      result = await genAI.models.generateContentStream({
-        model: modelName,
-        contents: fullPrompt,
-      });
-    }
+    // 2. SELECT THE MODEL (Using the stable 002 versions)
+    const genAI = new GoogleGenerativeAI(apiKey);
+    
+    // Use the "002" models to avoid 404 errors
+    const modelName = plan === 'syndicate' 
+      ? 'gemini-1.5-pro-002' 
+      : 'gemini-1.5-flash-002';
+      
+    const model = genAI.getGenerativeModel({ model: modelName });
 
-    // 4. Build the prompt with reference material
-    let fullPrompt = `Rewrite the following draft to match the specified style.\n`;
-    fullPrompt += `Style Match Intensity: ${intensity || 50}%\n\n`;
+    // 3. GENERATE STREAM
+    const geminiStream = await model.generateContentStream(fullPrompt);
+    const stream = GoogleGenerativeAIStream(geminiStream);
 
-    if (referenceText) {
-      fullPrompt += `Reference Style:\n${referenceText}\n\n`;
-    }
-
-    if (referenceFile) {
-      fullPrompt += `[Brand DNA Document Analysis - apply this style]\n`;
-    }
-
-    fullPrompt += `Draft to Rewrite:\n${draft}`;
-
-    // 6. Extract text chunks and stream them
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of result) {
-            if (chunk.text) {
-              controller.enqueue(encoder.encode(chunk.text));
-            }
-          }
-          controller.close();
-        } catch (error) {
-          controller.error(error);
-        }
-      }
-    });
-
-    // 7. Return Stream
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Transfer-Encoding': 'chunked',
-      }
-    });
+    return new StreamingTextResponse(stream);
 
   } catch (error: any) {
-    console.error('API Error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Generation failed' }), { status: 500 });
+    console.error("API Error:", error);
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
   }
 }
