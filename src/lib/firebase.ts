@@ -4,7 +4,7 @@ import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCKgcw8PnQpd_MJebEgqG9FBUiqD5nUG-s",
-  authDomain: "ghostnoteai.firebaseapp.com",
+  authDomain: "auth.ghostnote.site",
   projectId: "ghostnoteai",
   storageBucket: "ghostnoteai.firebasestorage.app",
   messagingSenderId: "518483511572",
