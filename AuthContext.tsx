@@ -298,7 +298,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Step 1: Delete Database Data (Silent)
       if (user) {
         console.log('🗑️ Deleting Firestore user document...');
-        await deleteDoc(doc(db, 'users', user.uid));
+        await deleteDoc(doc(db, 'users', auth.currentUser!.uid));
       }
 
       // Step 2: Delete Auth Account (Silent)
