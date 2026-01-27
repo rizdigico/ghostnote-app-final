@@ -293,61 +293,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAuthError(null);
     
     try {
-      console.log('🔥 Starting nuclear account deletion...');
+      console.log('⚡ Starting optimistic account deletion (no forced popup)...');
       
-      // STEP 1: Force Re-authentication for security
-      console.log('🔐 Step 1: Re-authenticating user...');
-      try {
-        const providers = auth.currentUser.providerData.map(p => p.providerId);
-        console.log('📋 Auth providers:', providers);
-        
-        if (providers.includes('google.com')) {
-          console.log('🔑 Re-authenticating with Google...');
-          await reauthenticateWithPopup(auth.currentUser, new GoogleAuthProvider());
-        } else if (providers.includes('password')) {
-          console.log('⚠️ Email/password user - they should re-login freshly for security');
-          setAuthError('For security, please log out and log back in, then delete your account immediately.');
-          setIsLoading(false);
-          return;
-        }
-      } catch (reAuthError: any) {
-        if (reAuthError.code === 'auth/requires-recent-login') {
-          setAuthError('For security, please Log Out and Log Back In, then try deleting again immediately.');
-          console.error('❌ Re-authentication failed - requires recent login');
-          setIsLoading(false);
-          return;
-        }
-        throw reAuthError;
+      // Step 1: Delete Database Data (Silent)
+      if (user) {
+        console.log('🗑️ Deleting Firestore user document...');
+        await deleteDoc(doc(db, 'users', user.uid));
       }
-      
-      // STEP 2: Delete Firestore data FIRST (before losing auth permission)
-      console.log('🗑️ Step 2: Deleting Firestore user document...');
-      const userDocRef = doc(db, 'users', auth.currentUser.uid);
-      await deleteDoc(userDocRef);
-      console.log('✅ Firestore user document deleted');
-      
-      // STEP 3: Delete Firebase Auth user LAST
-      console.log('🚀 Step 3: Deleting Firebase Auth user...');
-      await deleteUser(auth.currentUser);
-      console.log('✅ Firebase Auth user deleted');
-      
-      // Cleanup local state
+
+      // Step 2: Delete Auth Account (Silent)
+      console.log('🚀 Deleting Firebase Auth user...');
+      await deleteUser(auth.currentUser!);
+
+      // Step 3: Redirect immediately
+      console.log('✅ Account deletion complete - redirecting to home');
       setUser(null);
       setAuthError(null);
-      console.log('✅ Account deletion complete - redirecting to home');
-      
-      // Redirect to home after short delay
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 500);
-      
-    } catch (e: any) {
-      console.error('❌ Account deletion failed:', e);
-      
-      if (e.code === 'auth/requires-recent-login') {
-        setAuthError('For security, please Log Out and Log Back In, then try deleting again immediately.');
+      window.location.href = '/';
+
+    } catch (error: any) {
+      console.error("Delete failed", error);
+
+      // Step 4: ONLY show popup if the session is too old
+      if (error.code === 'auth/requires-recent-login') {
+        console.log('🔐 Session expired - attempting re-authentication...');
+        try {
+          const provider = new GoogleAuthProvider();
+          await reauthenticateWithPopup(auth.currentUser!, provider);
+          
+          // Retry delete after popup
+          console.log('🔄 Retrying account deletion after re-auth...');
+          await deleteDoc(doc(db, 'users', auth.currentUser!.uid));
+          await deleteUser(auth.currentUser!);
+          
+          setUser(null);
+          setAuthError(null);
+          console.log('✅ Account deletion successful after re-auth');
+          window.location.href = '/';
+        } catch (retryError) {
+          console.error('❌ Re-authentication or retry failed:', retryError);
+          setAuthError('Could not verify account. Please log out and log in again.');
+        }
       } else {
-        setAuthError(`Deletion failed: ${e.message || 'Unknown error'}`);
+        setAuthError(`Deletion failed: ${error.message || 'Unknown error'}`);
       }
     } finally {
       setIsLoading(false);
