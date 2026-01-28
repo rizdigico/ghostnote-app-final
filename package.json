@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "AI-powered ghostwriting tool using Google Gemini API",
+  "description": "AI-powered ghostwriting tool using Meta Llama 3.3 via OpenRouter",
   "author": "GhostNote Team",
   "license": "MIT",
   "scripts": {
@@ -14,10 +14,6 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.13",
-    "@google/genai": "^1.38.0",
-    "@google/generative-ai": "^0.24.1",
-    "ai": "^6.0.50",
     "firebase": "^12.8.0",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.562.0",

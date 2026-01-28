@@ -6,8 +6,7 @@ import Select from './Select';
 import PricingModal from './PricingModal';
 import AccountModal from './AccountModal';
 import UserMenu from './UserMenu'; // Fixed: Removed /Auth
-import { rewriteContent, ReferenceFile } from '../geminiService'; // Fixed: Removed /services
-import { dbService } from '../dbService'; // Fixed: Removed /services
+import { dbService } from '../dbService';
 import { useAuth } from '../AuthContext'; // Fixed: Removed /contexts
 import { RewriteStatus, VoicePreset, UserPlan } from '../types';
 import { jsPDF } from "jspdf";
@@ -259,9 +258,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
         let processedOutput = "Original,Rewritten\n";
         const total = rowsToProcess.length;
 
-        // Use standard model for bulk (unless we want to support pro here too, assume std for rate limits)
-        const bulkModel = 'gemini-2.5-flash'; 
-
+        // Using Llama 3.3 for bulk processing
         for (let i = 0; i < total; i++) {
              setLoadingMessage(`PROCESSING ROW ${i + 1}/${total}`);
              
@@ -282,7 +279,32 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
              
              if (!originalText) continue;
              
-             const rewritten = await rewriteContent(originalText, referenceText, null, intensity, bulkModel);
+             // Use API endpoint for bulk processing
+             const response = await fetch('/api/generate', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                 draft: originalText,
+                 referenceText: referenceText,
+                 intensity: intensity,
+               }),
+             });
+             
+             let rewritten = '';
+             if (response.ok && response.body) {
+               const reader = response.body.getReader();
+               const decoder = new TextDecoder();
+               let done = false;
+               while (!done) {
+                 const { value, done: doneReading } = await reader.read();
+                 done = doneReading;
+                 if (value) {
+                   rewritten += decoder.decode(value, { stream: true });
+                 }
+               }
+             } else {
+               throw new Error('Failed to process row');
+             }
              
              // Escape quotes for CSV output
              const safeOriginal = `"${originalText.replace(/"/g, '""')}"`;
@@ -330,16 +352,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       return;
     }
 
-    // Determine Model & Logic based on Plan
-    // Free plan uses Gemini 2.5 Flash, Paid uses Gemini 2.5 Pro
-    const modelToUse = isPaidPlan ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
-
+    // Using OpenRouter Llama 3.3 for all plans
     setStatus(RewriteStatus.LOADING);
     setErrorMessage(null);
     setCopied(false);
     setResultText('');
     setBulkDownloadUrl(null);
-    setLoadingMessage(isPaidPlan ? "PRIORITY GENERATION..." : "PROCESSING REQUEST");
+    setLoadingMessage("PROCESSING REQUEST");
 
     try {
       // BULK PROCESSING PATH
@@ -357,22 +376,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       }
 
       // SINGLE PROCESSING PATH - Use Streaming API
-      const filePayload: ReferenceFile | null = activeTab === 'file' && referenceFile 
-        ? { data: referenceFile.data, mimeType: referenceFile.mimeType } 
-        : null;
-
       const textPayload = activeTab === 'text' ? referenceText : null;
 
       const currentIntensity = userPlan !== 'echo' ? intensity : 50;
 
-      // Prepare request payload
+      // Prepare request payload (only sending what's needed by the API)
       const requestPayload = {
         draft: draftText,
         referenceText: textPayload,
-        referenceFile: filePayload,
         intensity: currentIntensity,
-        model: modelToUse,
-        plan: userPlan,
       };
 
       // Call streaming API

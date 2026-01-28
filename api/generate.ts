@@ -1,5 +1,4 @@
 
-
 export const config = {
   runtime: 'edge',
 };
@@ -14,17 +13,17 @@ export default async function handler(req: Request) {
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        // 1. Get Key from environment variable
-        const apiKey = process.env.OPENROUTER_API_KEY || "";
+        // 1. Get Key from environment variable (REQUIRED for OpenRouter)
+        const apiKey = process.env.OPENROUTER_API_KEY;
         
         if (!apiKey) {
-          controller.enqueue(encoder.encode("\n[Error: OpenRouter API key not configured. Please set OPENROUTER_API_KEY environment variable.]"));
+          controller.enqueue(encoder.encode("\n[Error] OpenRouter API key not configured.\nPlease set the OPENROUTER_API_KEY environment variable.\n\nGet your free key at: https://openrouter.ai/keys\n"));
           controller.close();
           return;
         }
 
         // 2. Parse Input - match Dashboard payload
-        const { draft, referenceText, intensity, model } = await req.json();
+        const { draft, referenceText, intensity } = await req.json();
         
         // Validate input
         if (!draft || !draft.trim()) {
@@ -39,11 +38,11 @@ export default async function handler(req: Request) {
           return;
         }
         
-        // 3. Define the Model
-        const modelId = model || "meta-llama/llama-3.3-70b-instruct:free";
+        // 3. Define the Model - Meta: Llama 3.3 70B Instruct (free) from OpenRouter
+        const MODEL_ID = "meta-llama/llama-3.3-70b-instruct:free";
 
         // This message proves you are running the NEW code
-        controller.enqueue(encoder.encode(`Initiating GhostNote (Llama 3.3)...\n\n`));
+        controller.enqueue(encoder.encode(`Initiating GhostNote (Llama 3.3 70B)...\n\n`));
 
         // 4. Send Request to OpenRouter
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -55,7 +54,7 @@ export default async function handler(req: Request) {
             'X-Title': 'GhostNote',
           },
           body: JSON.stringify({
-            model: modelId,
+            model: MODEL_ID,
             messages: [
               { 
                 role: "system", 
@@ -78,6 +77,8 @@ export default async function handler(req: Request) {
             diag += '\n[Key Doctor] Your OpenRouter API key is invalid or expired.';
           } else if (errText.includes('quota')) {
             diag += '\n[Key Doctor] Your OpenRouter account has hit a quota or limit.';
+          } else if (errText.includes('model')) {
+            diag += '\n[Key Doctor] Model not found. Please check the model ID.';
           }
 
           controller.enqueue(encoder.encode(`\n${diag}`));
