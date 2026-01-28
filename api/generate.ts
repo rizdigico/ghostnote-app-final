@@ -42,7 +42,7 @@ export default async function handler(req: Request) {
         const MODEL_ID = "meta-llama/llama-3.3-70b-instruct:free";
 
         // This message proves you are running the NEW code
-        controller.enqueue(encoder.encode(`Initiating GhostNote (Llama 3.3 70B)...\n\n`));
+        controller.enqueue(encoder.encode(`Initiating GhostNote...\n\n`));
 
         // 4. Send Request to OpenRouter
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
