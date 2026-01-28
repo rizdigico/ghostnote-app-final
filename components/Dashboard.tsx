@@ -9,7 +9,7 @@ import UserMenu from './UserMenu'; // Fixed: Removed /Auth
 import { rewriteContent, ReferenceFile } from '../geminiService'; // Fixed: Removed /services
 import { dbService } from '../dbService'; // Fixed: Removed /services
 import { useAuth } from '../AuthContext'; // Fixed: Removed /contexts
-import { RewriteStatus, VoicePreset } from '../types';
+import { RewriteStatus, VoicePreset, UserPlan } from '../types';
 import { jsPDF } from "jspdf";
 
 interface DashboardProps {
@@ -59,6 +59,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkInputRef = useRef<HTMLInputElement>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const cooldownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // --- EFFECT: LOAD DATA ---
   useEffect(() => {
@@ -103,7 +104,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   const hasCredits = userPlan !== 'echo' || dailyCredits > 0;
 
   // Handle Plan Upgrade
-  const handleUpgrade = async (plan: any) => {
+  const handleUpgrade = async (plan: UserPlan) => {
     await updatePlan(plan);
     setShowUpgradeModal(false);
     // Reset active tab if it's no longer allowed
@@ -421,15 +422,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
         // Start 10s Cooldown
         setIsCooldown(true);
         setCooldownSeconds(10);
-        const timer = setInterval(() => {
-            setCooldownSeconds(prev => {
-                if (prev <= 1) {
-                    clearInterval(timer);
-                    setIsCooldown(false);
-                    return 0;
-                }
-                return prev - 1;
-            });
+        
+        // Clear any existing timer
+        if (cooldownTimerRef.current) {
+          clearInterval(cooldownTimerRef.current);
+        }
+        
+        cooldownTimerRef.current = setInterval(() => {
+          setCooldownSeconds(prev => {
+            if (prev <= 1) {
+              if (cooldownTimerRef.current) {
+                clearInterval(cooldownTimerRef.current);
+                cooldownTimerRef.current = null;
+              }
+              setIsCooldown(false);
+              return 0;
+            }
+            return prev - 1;
+          });
         }, 1000);
       } 
       // Paid Plan: Instant Access (No Cooldown)

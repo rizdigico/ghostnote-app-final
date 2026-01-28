@@ -253,9 +253,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
     try {
       const userDocRef = doc(db, 'users', user.id);
-      const updatedUser = { ...user, plan };
-      await setDoc(userDocRef, updatedUser);
-      setUser(updatedUser);
+      await updateDoc(userDocRef, { plan });
+      setUser({ ...user, plan });
     } catch (error) {
       console.error("Failed to update plan", error);
     }
@@ -266,9 +265,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const userDocRef = doc(db, 'users', user.id);
       const newCredits = Math.max(0, user.credits - 1);
-      const updatedUser = { ...user, credits: newCredits };
-      await setDoc(userDocRef, updatedUser);
-      setUser(updatedUser);
+      await updateDoc(userDocRef, { credits: newCredits });
+      setUser({ ...user, credits: newCredits });
     } catch (error) {
       console.error("Failed to deduct credit", error);
     }
@@ -278,9 +276,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!user) return;
     try {
       const userDocRef = doc(db, 'users', user.id);
-      const updatedUser = { ...user, instagramConnected: !user.instagramConnected };
-      await setDoc(userDocRef, updatedUser);
-      setUser(updatedUser);
+      const newInstagramState = !user.instagramConnected;
+      await updateDoc(userDocRef, { instagramConnected: newInstagramState });
+      setUser({ ...user, instagramConnected: newInstagramState });
     } catch (error) {
       console.error("Failed to toggle Instagram", error);
     }
@@ -347,9 +345,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const apiKey = 'key_' + Math.random().toString(36).substr(2, 32);
       const userDocRef = doc(db, 'users', user.id);
-      const updatedUser = { ...user, apiKey };
-      await setDoc(userDocRef, updatedUser);
-      setUser(updatedUser);
+      await updateDoc(userDocRef, { apiKey });
+      setUser({ ...user, apiKey });
     } catch (e) {
       console.error("Failed to generate API key", e);
       throw e;

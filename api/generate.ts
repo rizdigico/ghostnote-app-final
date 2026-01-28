@@ -14,9 +14,14 @@ export default async function handler(req: Request) {
   const readable = new ReadableStream({
     async start(controller) {
       try {
-        // 1. Get Key
-        // Use the provided OpenRouter API key directly for this session
-        const apiKey = "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";
+        // 1. Get Key from environment variable
+        const apiKey = process.env.OPENROUTER_API_KEY || "";
+        
+        if (!apiKey) {
+          controller.enqueue(encoder.encode("\n[Error: OpenRouter API key not configured. Please set OPENROUTER_API_KEY environment variable.]"));
+          controller.close();
+          return;
+        }
 
         // 2. Parse Input
         const { prompt, settings } = await req.json();
