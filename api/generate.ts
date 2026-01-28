@@ -23,11 +23,24 @@ export default async function handler(req: Request) {
           return;
         }
 
-        // 2. Parse Input
-        const { prompt, settings } = await req.json();
+        // 2. Parse Input - match Dashboard payload
+        const { draft, referenceText, intensity, model } = await req.json();
         
-        // 3. Define the Model (Llama 3.3 Free)
-        const modelId = "meta-llama/llama-3.3-70b-instruct:free";
+        // Validate input
+        if (!draft || !draft.trim()) {
+          controller.enqueue(encoder.encode("\n[Error: No text was provided for rewriting. Please enter some text to rewrite.]"));
+          controller.close();
+          return;
+        }
+        
+        if (!referenceText || !referenceText.trim()) {
+          controller.enqueue(encoder.encode("\n[Error: Reference text is required. Please provide a style reference.]"));
+          controller.close();
+          return;
+        }
+        
+        // 3. Define the Model
+        const modelId = model || "meta-llama/llama-3.3-70b-instruct:free";
 
         // This message proves you are running the NEW code
         controller.enqueue(encoder.encode(`Initiating GhostNote (Llama 3.3)...\n\n`));
@@ -46,11 +59,11 @@ export default async function handler(req: Request) {
             messages: [
               { 
                 role: "system", 
-                content: `You are a professional ghostwriter. Tone: ${settings?.tone || 'Professional'}. Return ONLY the rewritten text.` 
+                content: `You are a professional ghostwriter. Analyze the reference text to understand the writing style, tone, and voice. Then rewrite the user's draft to match that style. Intensity: ${intensity || 50}%. Return ONLY the rewritten text, no explanations.\n\nReference Style:\n${referenceText.slice(0, 1000)}` 
               },
               { 
                 role: "user", 
-                content: `Rewrite this text: \"${prompt}\"` 
+                content: `Rewrite this text in the style of the reference:\n\n${draft}` 
               }
             ],
             stream: true, 
