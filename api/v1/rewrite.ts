@@ -20,9 +20,9 @@ const db = getFirestore();
 
 // --- VALIDATE KEY FUNCTION ---
 async function validateApiKey(token: string) {
-  // 1. Look for this key in your 'users' collection
+  // FIX: Changed 'api_key' to 'apiKey' to match your database field
   const snapshot = await db.collection('users')
-    .where('api_key', '==', token)
+    .where('apiKey', '==', token)
     .limit(1)
     .get();
 
@@ -58,7 +58,7 @@ export default async function handler(req: any, res: any) {
     const user = await validateApiKey(token);
 
     if (!user) {
-      return res.status(403).json({ error: 'Invalid API Key.' });
+      return res.status(403).json({ error: 'Invalid API Key. Check database.' });
     }
 
     if (user.plan !== 'syndicate') {
