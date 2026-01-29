@@ -50,7 +50,8 @@ const AppContent: React.FC = () => {
     }
     
     // Handle plan param for opening pricing modal
-    if (params.get('plan') && ['echo', 'clone', 'syndicate'].includes(params.get('plan'))) {
+    const planParam = params.get('plan');
+    if (planParam && ['echo', 'clone', 'syndicate'].includes(planParam)) {
       // Will be handled by the component
     }
   }, [updatePlan]);
