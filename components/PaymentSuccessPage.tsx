@@ -25,7 +25,7 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete, onO
     const plan = params.get('plan');
     const success = params.get('success');
     
-    if (plan && ['clone', 'syndicate'].includes(plan)) {
+    if (plan && ['echo', 'clone', 'syndicate'].includes(plan)) {
       setPlanName(plan.charAt(0).toUpperCase() + plan.slice(1));
       localStorage.setItem('pendingPlan', plan);
       console.log(`✅ Saved pending plan to localStorage: ${plan}`);
@@ -54,7 +54,7 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete, onO
         }
 
         // Validate plan
-        if (!plan || !['clone', 'syndicate'].includes(plan)) {
+        if (!plan || !['echo', 'clone', 'syndicate'].includes(plan)) {
           setError('Invalid plan. Redirecting to dashboard...');
           setIsProcessing(false);
           setTimeout(() => onComplete('error'), 2000);
@@ -135,7 +135,7 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onComplete, onO
       const params = new URLSearchParams(window.location.search);
       const plan = params.get('plan');
       
-      if (plan && ['clone', 'syndicate'].includes(plan)) {
+      if (plan && ['echo', 'clone', 'syndicate'].includes(plan)) {
         localStorage.setItem('pendingPlan', plan);
         console.log(`💾 Saved plan "${plan}" to localStorage for post-login`);
       }
