@@ -79,6 +79,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     loadData();
   }, [user]);
 
+  // --- EFFECT: CHECK FOR CHECKOUT PARAM ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get('checkout');
+    const plan = params.get('plan');
+    
+    if (checkout === 'true' && plan && ['clone', 'syndicate'].includes(plan)) {
+      // Open the upgrade modal with the specific plan
+      setShowUpgradeModal(true);
+      // Clean the URL
+      window.history.replaceState({}, '', '/dashboard');
+    }
+  }, []);
+
   // Handle click outside for export menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

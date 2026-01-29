@@ -27,7 +27,7 @@ export default async function handler(req: any, res: any) {
         planName: plan || 'syndicate' // Store 'clone' or 'syndicate' here
       },
 
-      success_url: `${req.headers.origin}/dashboard?success=true`,
+      success_url: `${req.headers.origin}/payment-success?plan=${plan}&success=true`,
       cancel_url: `${req.headers.origin}/dashboard?canceled=true`,
     });
 

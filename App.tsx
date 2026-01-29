@@ -26,12 +26,32 @@ const AppContent: React.FC = () => {
        return;
     }
     const params = new URLSearchParams(window.location.search);
+    
+    // Handle success param from Stripe (legacy support)
     if (params.get('paid') === 'true') {
       updatePlan('clone');
       setSuccessPlanName('Clone');
       setShowPaymentSuccess(true);
       window.history.replaceState({}, '', '/');
       setTimeout(() => setShowPaymentSuccess(false), 5000);
+    }
+    
+    // Handle showLogin param for redirecting to login
+    if (params.get('showLogin') === 'true') {
+      setCurrentView('login');
+      // Clear the query param
+      const plan = params.get('plan');
+      if (plan) {
+        localStorage.setItem('pendingPlan', plan);
+        window.history.replaceState({}, '', '/?showLogin=true');
+      } else {
+        window.history.replaceState({}, '', '/');
+      }
+    }
+    
+    // Handle plan param for opening pricing modal
+    if (params.get('plan') && ['echo', 'clone', 'syndicate'].includes(params.get('plan'))) {
+      // Will be handled by the component
     }
   }, [updatePlan]);
 
@@ -71,7 +91,7 @@ const AppContent: React.FC = () => {
   };
 
   if (currentView === 'payment_success') {
-      return <PaymentSuccessPage onComplete={handlePaymentComplete} />;
+      return <PaymentSuccessPage onComplete={handlePaymentComplete} onOpenLoginModal={() => setCurrentView('login')} />;
   }
 
   if (currentView === 'terms') {

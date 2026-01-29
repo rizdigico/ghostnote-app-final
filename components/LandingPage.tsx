@@ -24,6 +24,16 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
     const elements = document.querySelectorAll('.reveal-on-scroll');
     elements.forEach((el) => observerRef.current?.observe(el));
 
+    // Check for plan param to open pricing modal
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get('plan');
+    if (plan && ['echo', 'clone', 'syndicate'].includes(plan)) {
+      // Dispatch custom event to open pricing modal
+      window.dispatchEvent(new CustomEvent('openPricing', { detail: plan }));
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     return () => observerRef.current?.disconnect();
   }, []);
 

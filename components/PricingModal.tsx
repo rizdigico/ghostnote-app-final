@@ -24,8 +24,12 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
   const handlePlanSelection = async (planId: UserPlan) => {
     const userId = auth.currentUser?.uid;
     if (!userId) {
-      // Handle not logged in
-      alert('Please log in first.');
+      // Save the plan to localStorage and redirect to login
+      if (planId !== 'echo') {
+        localStorage.setItem('pendingPlan', planId);
+      }
+      // Redirect to home with login modal
+      window.location.href = '/?showLogin=true&plan=' + planId;
       return;
     }
 

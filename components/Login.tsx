@@ -21,6 +21,14 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
       setError(null);
       clearAuthError();
       await loginWithGoogle();
+      // Check for pending plan after login
+      const pendingPlan = localStorage.getItem('pendingPlan');
+      if (pendingPlan && ['clone', 'syndicate'].includes(pendingPlan)) {
+        // Redirect to dashboard with checkout param
+        localStorage.removeItem('pendingPlan');
+        window.location.href = '/dashboard?plan=' + pendingPlan + '&checkout=true';
+        return;
+      }
       onSuccess();
     } catch (err) {
       console.error("Google login error:", err);
@@ -47,6 +55,14 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
       setEmail('');
       setPassword('');
       setShowEmailForm(false);
+      // Check for pending plan after login
+      const pendingPlan = localStorage.getItem('pendingPlan');
+      if (pendingPlan && ['clone', 'syndicate'].includes(pendingPlan)) {
+        // Redirect to dashboard with checkout param
+        localStorage.removeItem('pendingPlan');
+        window.location.href = '/dashboard?plan=' + pendingPlan + '&checkout=true';
+        return;
+      }
       onSuccess();
     } catch (err: any) {
       const errorMessage = err?.message || (isSignupMode ? 'Failed to sign up' : 'Failed to sign in');
