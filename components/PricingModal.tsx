@@ -45,7 +45,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       const res = await fetch('/api/checkout/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, priceId })
+        body: JSON.stringify({ userId, priceId, plan: planId })
       });
       
       const data = await res.json();

@@ -49,22 +49,27 @@ export default async function handler(req: any, res: any) {
   // 4. HANDLE THE PAYMENT
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as any;
+    const userId = session.client_reference_id;
     
-    // We expect the User ID to be stored in the "client_reference_id" field
-    // or inside "metadata". Check how your checkout button sends it!
-    const userId = session.client_reference_id || session.metadata?.userId;
+    // READ THE STICKY NOTE
+    const planName = session.metadata?.planName || 'syndicate'; 
 
     if (userId) {
-        console.log(`💰 Payment received for User: ${userId}`);
-        
-        // 5. UPDATE FIREBASE (The Magic)
+        console.log(`💰 Payment for ${planName} by User: ${userId}`);
+
+        // DEFINE CREDITS BASED ON PLAN
+        let creditsAmount = 0;
+        if (planName === 'syndicate') creditsAmount = 1000000; // 1 Million
+        if (planName === 'clone') creditsAmount = 10000;       // <--- SET CLONE LIMIT HERE
+
+        // UPDATE FIREBASE
         await db.collection('users').doc(userId).update({
-            plan: 'syndicate',
-            credits: 1000000, // <--- THE ONE MILLION CREDITS
-            apiKey: `key_${Math.random().toString(36).substring(2, 15)}` // Generate a fresh key
+            plan: planName, // 'clone' or 'syndicate'
+            credits: creditsAmount,
+            apiKey: `key_${Math.random().toString(36).substring(2, 15)}`
         });
         
-        console.log(`✅ User ${userId} upgraded to Syndicate (1M Credits).`);
+        console.log(`✅ User upgraded to ${planName} with ${creditsAmount} credits.`);
     }
   }
 

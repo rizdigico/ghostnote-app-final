@@ -1,39 +1,32 @@
 // api/checkout/session.ts
-// UPDATED: Now allows Promo Codes
-
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2025-12-15.clover' as any, 
+  apiVersion: '2026-01-28.clover' as any,
 });
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { userId, priceId } = req.body;
+    // 1. Receive the 'plan' from the frontend
+    const { userId, priceId, plan } = req.body; 
 
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
+    if (!userId) return res.status(400).json({ error: 'User ID is required' });
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
+      allow_promotion_codes: true,
+      line_items: [{ price: priceId, quantity: 1 }],
       
-      // --- THE FIX IS HERE ---
-      allow_promotion_codes: true, // <--- This enables the "Add Promo Code" box
-      // -----------------------
-
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
       client_reference_id: userId,
+
+      // 2. ATTACH THE STICKY NOTE (METADATA)
+      metadata: {
+        planName: plan || 'syndicate' // Store 'clone' or 'syndicate' here
+      },
+
       success_url: `${req.headers.origin}/dashboard?success=true`,
       cancel_url: `${req.headers.origin}/dashboard?canceled=true`,
     });
