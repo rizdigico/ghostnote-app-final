@@ -53,6 +53,9 @@ const ensureUserDocument = async (firebaseUser: any) => {
       credits: 5,
       joinedDate: new Date().toISOString(),
       instagramConnected: false,
+      // Generate API key immediately for all new users
+      apiKey: `key_${Math.random().toString(36).substring(2, 15)}`,
+      createdAt: new Date()
     };
     await setDoc(userDocRef, newUser);
     return newUser;

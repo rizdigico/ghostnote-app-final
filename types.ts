@@ -18,6 +18,7 @@ export interface User {
   joinedDate: string;
   instagramConnected?: boolean;
   apiKey?: string;
+  createdAt?: Date; // Timestamp for when user was first created
 }
 
 export enum RewriteStatus {
