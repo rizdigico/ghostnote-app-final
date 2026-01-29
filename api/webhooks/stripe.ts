@@ -17,7 +17,7 @@ const db = getFirestore();
 
 // 2. Setup Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2023-10-16', // Use your latest version
+  apiVersion: '2026-01-28.clover', // Use your latest version
 });
 
 // This prevents Next.js from messing up the "Signature" check
