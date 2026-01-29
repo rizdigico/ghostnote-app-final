@@ -286,7 +286,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                body: JSON.stringify({
                  draft: originalText,
                  referenceText: referenceText,
-                 intensity: intensity,
+                 intensity: userPlan !== "echo" ? Number(intensity) || 50 : 50,
                }),
              });
              
@@ -378,7 +378,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       // SINGLE PROCESSING PATH - Use Streaming API
       const textPayload = activeTab === 'text' ? referenceText : null;
 
-      const currentIntensity = userPlan !== 'echo' ? intensity : 50;
+      const currentIntensity = userPlan !== 'echo' ? Number(intensity) || 50 : 50;
 
       // Prepare request payload (only sending what's needed by the API)
       const requestPayload = {

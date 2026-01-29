@@ -25,6 +25,9 @@ export default async function handler(req: Request) {
         // 2. Parse Input - match Dashboard payload
         const { draft, referenceText, intensity } = await req.json();
         
+        // Validate and clamp intensity to valid range (0-100)
+        const validIntensity = Math.min(100, Math.max(0, Number(intensity) || 50));
+        
         // Validate input
         if (!draft || !draft.trim()) {
           controller.enqueue(encoder.encode("\n[Error: No text was provided for rewriting. Please enter some text to rewrite.]"));
@@ -58,7 +61,7 @@ export default async function handler(req: Request) {
             messages: [
               { 
                 role: "system", 
-                content: `You are a professional ghostwriter. Analyze the reference text to understand the writing style, tone, and voice. Then rewrite the user's draft to match that style. Intensity: ${intensity || 50}%. Return ONLY the rewritten text, no explanations.\n\nReference Style:\n${referenceText.slice(0, 1000)}` 
+                content: `You are a professional ghostwriter. Analyze the reference text to understand the writing style, tone, and voice. Then rewrite the user's draft to match that style. Intensity: ${validIntensity}%. Return ONLY the rewritten text, no explanations.\n\nReference Style:\n${referenceText.slice(0, 1000)}` 
               },
               { 
                 role: "user", 
