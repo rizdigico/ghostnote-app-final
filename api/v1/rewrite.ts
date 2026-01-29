@@ -1,68 +1,51 @@
 // api/v1/rewrite.ts
-// FINAL STABLE VERSION: Includes "Auto-Retry" for better reliability.
+// FIXED: Allows Clone/Echo to use the Dashboard, but blocks them from external API.
 
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
-// --- DATABASE CONNECTION ---
 if (!getApps().length) {
   const serviceAccount = JSON.parse(
     process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string
   );
-  
-  initializeApp({
-    credential: cert(serviceAccount),
-  });
+  initializeApp({ credential: cert(serviceAccount) });
 }
 
 const db = getFirestore();
 
 // --- RETRY LOGIC ---
-// If OpenRouter is busy, we wait and try again (up to 3 times)
 async function fetchWithRetry(url: string, options: any, retries = 3) {
   for (let i = 0; i < retries; i++) {
     const response = await fetch(url, options);
-    
-    // If successful, return immediately
     if (response.ok) return response;
-    
-    // If it's NOT a rate limit error (429), fail immediately
     if (response.status !== 429) return response;
-
-    // If it WAS a rate limit error, wait 1 second and try again
-    console.log(`Rate limit hit. Retrying... (${i + 1}/${retries})`);
     await new Promise(r => setTimeout(r, 1000));
   }
-  throw new Error("Server is busy (Rate Limit). Please try again later.");
+  throw new Error("Server is busy. Please try again.");
 }
 
 // --- VALIDATE KEY ---
 async function validateApiKey(token: string) {
   const snapshot = await db.collection('users')
-    .where('apiKey', '==', token) // Ensuring camelCase match
+    .where('apiKey', '==', token)
     .limit(1)
     .get();
 
   if (snapshot.empty) return null;
 
   const userDoc = snapshot.docs[0];
-  const userData = userDoc.data();
-
   return { 
     valid: true, 
     docId: userDoc.id,
-    plan: userData.plan || 'free', 
-    credits: userData.credits || 0 
+    plan: userDoc.data().plan || 'free', 
+    credits: userDoc.data().credits || 0 
   };
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed. Use POST.' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // 1. AUTHENTICATION
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Missing Authorization header.' });
@@ -73,16 +56,24 @@ export default async function handler(req: any, res: any) {
 
     if (!user) return res.status(403).json({ error: 'Invalid API Key.' });
 
-    // 2. CHECK CREDITS (The "Safety Net")
-    if (user.plan !== 'syndicate') {
-      return res.status(403).json({ error: 'Plan restriction.' });
+    // --- THE NEW BOUNCER LOGIC ---
+    
+    // 1. Identify if the request is coming from YOUR Dashboard
+    const referer = req.headers.referer || "";
+    const isInternalRequest = referer.includes("ghostnote.site") || referer.includes("localhost");
+
+    // 2. The Rule: 
+    // If they are NOT Syndicate AND they are NOT on the dashboard -> BLOCK THEM.
+    if (user.plan !== 'syndicate' && !isInternalRequest) {
+      return res.status(403).json({ error: 'External API access is restricted to Syndicate Plan.' });
     }
 
+    // 3. Check Credits (Applies to everyone)
     if (user.credits <= 0) {
-      return res.status(402).json({ error: 'Insufficient credits. Contact Support.' });
+      return res.status(402).json({ error: 'Insufficient credits.' });
     }
 
-    // 3. CALL AI (With Retry)
+    // --- EXECUTE AI ---
     const { reference_text, draft_text } = req.body;
     const systemPrompt = `You are a Ghostwriter. Style: "${reference_text || 'Professional'}". Rewrite the user's draft. Return ONLY the text.`;
     
@@ -107,18 +98,14 @@ export default async function handler(req: any, res: any) {
     const aiData = await aiResponse.json();
     const rewrittenText = aiData.choices[0]?.message?.content || "";
 
-    // 4. DEDUCT CREDIT
-    // Only deduct if successful
+    // Deduct Credit
     await db.collection('users').doc(user.docId).update({
       credits: FieldValue.increment(-1)
     });
 
     return res.status(200).json({ 
-      status: 'success',
-      data: { 
-        rewritten_text: rewrittenText,
-        credits_remaining: user.credits - 1 
-      }
+      status: 'success', 
+      data: { rewritten_text: rewrittenText, credits_remaining: user.credits - 1 }
     });
 
   } catch (error: any) {
