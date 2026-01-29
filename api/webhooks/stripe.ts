@@ -51,25 +51,40 @@ export default async function handler(req: any, res: any) {
     const session = event.data.object as any;
     const userId = session.client_reference_id;
     
-    // READ THE STICKY NOTE
+    // Read the Plan Name from the sticky note (or default to syndicate)
     const planName = session.metadata?.planName || 'syndicate'; 
 
     if (userId) {
         console.log(`💰 Payment for ${planName} by User: ${userId}`);
 
-        // DEFINE CREDITS BASED ON PLAN
+        // 1. Determine Credits
         let creditsAmount = 0;
-        if (planName === 'syndicate') creditsAmount = 1000000; // 1 Million
-        if (planName === 'clone') creditsAmount = 10000;       // <--- SET CLONE LIMIT HERE
+        if (planName === 'syndicate') creditsAmount = 1000000; 
+        if (planName === 'clone') creditsAmount = 500; 
 
-        // UPDATE FIREBASE
-        await db.collection('users').doc(userId).update({
-            plan: planName, // 'clone' or 'syndicate'
+        // 2. CHECK EXISTING USER DATA
+        // We fetch the user first to see if they already have an API key.
+        const userRef = db.collection('users').doc(userId);
+        const userSnap = await userRef.get();
+        const userData = userSnap.data();
+
+        // 3. DECIDE API KEY
+        // If they have a key, KEEP IT. If not, generate a new one.
+        let finalApiKey = userData?.apiKey;
+        
+        if (!finalApiKey) {
+            console.log("Generating new key for user...");
+            finalApiKey = `key_${Math.random().toString(36).substring(2, 15)}`;
+        }
+
+        // 4. UPDATE DATABASE (Safe Update)
+        await userRef.update({
+            plan: planName,
             credits: creditsAmount,
-            apiKey: `key_${Math.random().toString(36).substring(2, 15)}`
+            apiKey: finalApiKey // This now keeps the old key if it existed
         });
         
-        console.log(`✅ User upgraded to ${planName} with ${creditsAmount} credits.`);
+        console.log(`✅ User updated: ${planName}. Key Preserved: ${!!userData?.apiKey}`);
     }
   }
 
