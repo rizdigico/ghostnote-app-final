@@ -1,6 +1,14 @@
 import React from 'react';
 import { Check, X, Zap, Crown, Ghost, Lock } from 'lucide-react';
 import { UserPlan } from '../types';
+import { auth } from '../src/lib/firebase';
+
+// FIX: Price IDs for Stripe checkout
+const PLAN_PRICE_IDS: Record<UserPlan, string> = {
+  echo: '',                                      // Free Plan (No Stripe ID needed)
+  clone: 'price_1StVDBJeTnM8efjPOdGRpJ93',      // Put your Clone Price ID here (if ready)
+  syndicate: 'price_1StVDAJeTnM8efjPRUpn1xOV',  // Your Syndicate Price ID
+};
 
 interface PricingModalProps {
   isOpen: boolean;
@@ -13,15 +21,42 @@ interface PricingModalProps {
 const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPlan, currentPlan, onViewLegal }) => {
   if (!isOpen) return null;
 
-  const handlePlanSelection = (planId: UserPlan) => {
-    const successUrl = encodeURIComponent('https://ghostnote.site/payment-success');
-    
-    if (planId === 'clone') {
-      window.location.href = `https://buy.stripe.com/aFa28sbSo9iQ3tv9jK5Vu01?client_reference_id=clone&success_url=${successUrl}?plan=clone`;
-    } else if (planId === 'syndicate') {
-      window.location.href = `https://buy.stripe.com/dRm8wQ5u0dz63tv3Zq5Vu00?client_reference_id=syndicate&success_url=${successUrl}?plan=syndicate`;
-    } else {
+  const handlePlanSelection = async (planId: UserPlan) => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      // Handle not logged in
+      alert('Please log in first.');
+      return;
+    }
+
+    // 1. IF FREE PLAN (ECHO): Just update the database, don't ask for money.
+    if (planId === 'echo') {
       onSelectPlan(planId);
+      console.log('Switching to free plan...');
+      return; 
+    }
+
+    // 2. IF PAID PLAN (CLONE/SYNDICATE): Go to Stripe
+    const priceId = PLAN_PRICE_IDS[planId];
+    if (!priceId) return; // Safety check
+
+    // Call your Checkout API
+    try {
+      const res = await fetch('/api/checkout/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, priceId })
+      });
+      
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Error creating checkout session: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Checkout error:', error);
+      alert('Error creating checkout session');
     }
   };
 
