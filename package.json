@@ -18,8 +18,10 @@
     "firebase-admin": "^13.6.0",
     "jspdf": "^4.0.0",
     "lucide-react": "^0.562.0",
+    "micro": "^10.0.1",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
+    "stripe": "^20.3.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
