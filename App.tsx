@@ -7,7 +7,6 @@ import PaymentSuccessPage from './components/PaymentSuccessPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import { UserPlan } from './types';
 import { AuthProvider, useAuth } from './AuthContext'; // Fixed: Removed /contexts
-import { Check, X } from 'lucide-react';
 
 type ViewState = 'landing' | 'app' | 'login' | 'terms' | 'privacy' | 'payment_success';
 
@@ -15,8 +14,6 @@ const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
   const [previousView, setPreviousView] = useState<ViewState>('landing');
   const [initialPlan, setInitialPlan] = useState<UserPlan>('echo');
-  const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
-  const [successPlanName, setSuccessPlanName] = useState<string>('');
   const { user, isLoading, updatePlan } = useAuth();
 
   useEffect(() => {
@@ -26,15 +23,6 @@ const AppContent: React.FC = () => {
        return;
     }
     const params = new URLSearchParams(window.location.search);
-    
-    // Handle success param from Stripe (legacy support)
-    if (params.get('paid') === 'true') {
-      updatePlan('clone');
-      setSuccessPlanName('Clone');
-      setShowPaymentSuccess(true);
-      window.history.replaceState({}, '', '/');
-      setTimeout(() => setShowPaymentSuccess(false), 5000);
-    }
     
     // Handle showLogin param for redirecting to login
     if (params.get('showLogin') === 'true') {
@@ -84,19 +72,8 @@ const AppContent: React.FC = () => {
   };
   
   const handlePaymentComplete = (planName: string) => {
-    // Skip success message if there was an error
-    if (planName === 'error') {
-      window.history.replaceState({}, '', '/');
-      setCurrentView('app');
-      return;
-    }
-    // Use the user's actual plan (updated by webhook) for the success message
-    const displayPlanName = user?.plan ? (user.plan.charAt(0).toUpperCase() + user.plan.slice(1)) : (planName ? (planName.charAt(0).toUpperCase() + planName.slice(1)) : 'Premium');
-    setSuccessPlanName(displayPlanName);
     window.history.replaceState({}, '', '/');
     setCurrentView('app');
-    setShowPaymentSuccess(true);
-    setTimeout(() => setShowPaymentSuccess(false), 5000);
   };
 
   if (currentView === 'payment_success') {
@@ -111,31 +88,9 @@ const AppContent: React.FC = () => {
     return <LegalPage type="privacy" onBack={handleBackFromLegal} />;
   }
 
-  const renderAlerts = () => (
-    <>
-      {showPaymentSuccess && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md animate-fade-in-down">
-            <div className="bg-green-500/10 border border-green-500/50 backdrop-blur-md text-green-200 px-4 py-3 rounded-lg shadow-2xl flex items-start gap-3">
-                <Check size={20} className="text-green-500 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                    <p className="text-sm font-bold text-green-100">Payment Successful!</p>
-                    <p className="text-sm font-medium opacity-90 leading-tight mt-0.5">
-                        Welcome to {successPlanName} Plan! Features Unlocked.
-                    </p>
-                </div>
-                <button onClick={() => setShowPaymentSuccess(false)} className="text-green-400 hover:text-white transition-colors p-1">
-                    <X size={16} />
-                </button>
-            </div>
-        </div>
-      )}
-    </>
-  );
-
   if (currentView === 'login' || (currentView === 'app' && !user)) {
       return (
           <div className="antialiased text-textMain bg-background min-h-screen flex flex-col">
-              {renderAlerts()}
               <header className="border-b border-border h-16 flex items-center justify-between px-6 bg-background">
                   <button onClick={handleGoHome} className="font-bold tracking-widest uppercase text-xs">GhostNote</button>
               </header>
@@ -152,7 +107,6 @@ const AppContent: React.FC = () => {
   if (currentView === 'app' && user) {
     return (
       <>
-        {renderAlerts()}
         <Dashboard onGoHome={handleGoHome} onViewLegal={navigateToLegal} />
       </>
     );
@@ -160,7 +114,6 @@ const AppContent: React.FC = () => {
 
   return (
       <>
-        {renderAlerts()}
         <LandingPage onEnterApp={handleEnterApp} onViewLegal={navigateToLegal} isLoading={isLoading} />
       </>
   );
