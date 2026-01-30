@@ -90,7 +90,9 @@ const AppContent: React.FC = () => {
       setCurrentView('app');
       return;
     }
-    setSuccessPlanName(planName ? (planName.charAt(0).toUpperCase() + planName.slice(1)) : 'Premium');
+    // Use the user's actual plan (updated by webhook) for the success message
+    const displayPlanName = user?.plan ? (user.plan.charAt(0).toUpperCase() + user.plan.slice(1)) : (planName ? (planName.charAt(0).toUpperCase() + planName.slice(1)) : 'Premium');
+    setSuccessPlanName(displayPlanName);
     window.history.replaceState({}, '', '/');
     setCurrentView('app');
     setShowPaymentSuccess(true);
