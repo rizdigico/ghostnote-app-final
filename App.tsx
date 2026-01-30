@@ -84,6 +84,12 @@ const AppContent: React.FC = () => {
   };
   
   const handlePaymentComplete = (planName: string) => {
+    // Skip success message if there was an error
+    if (planName === 'error') {
+      window.history.replaceState({}, '', '/');
+      setCurrentView('app');
+      return;
+    }
     setSuccessPlanName(planName ? (planName.charAt(0).toUpperCase() + planName.slice(1)) : 'Premium');
     window.history.replaceState({}, '', '/');
     setCurrentView('app');
