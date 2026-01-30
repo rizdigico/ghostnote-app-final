@@ -185,5 +185,27 @@ export const dbService = {
     localStorage.setItem(STORAGE_KEY_CUSTOM_VOICES, JSON.stringify(customVoices));
 
     return newPreset;
+  },
+
+  async deleteVoicePreset(userId: string, presetId: string): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    const stored = localStorage.getItem(STORAGE_KEY_CUSTOM_VOICES);
+    if (!stored) return;
+
+    let customVoices: VoicePreset[] = [];
+    try {
+      customVoices = JSON.parse(stored);
+      if (!Array.isArray(customVoices)) customVoices = [];
+    } catch (e) {
+      customVoices = [];
+    }
+
+    // Only delete if the preset belongs to the user
+    const updatedVoices = customVoices.filter(
+      (v) => !(v.id === presetId && v.ownerId === userId)
+    );
+
+    localStorage.setItem(STORAGE_KEY_CUSTOM_VOICES, JSON.stringify(updatedVoices));
   }
 };

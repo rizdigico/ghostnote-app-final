@@ -35,6 +35,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   // Save Preset State
   const [showSavePresetModal, setShowSavePresetModal] = useState<boolean>(false);
   const [newPresetName, setNewPresetName] = useState<string>("");
+  
+  // Delete Preset State
+  const [showDeletePresetModal, setShowDeletePresetModal] = useState<boolean>(false);
+  const [presetToDelete, setPresetToDelete] = useState<VoicePreset | null>(null);
 
   // App State
   const [presets, setPresets] = useState<VoicePreset[]>([]);
@@ -136,6 +140,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     }
   };
   
+  // Derived value for selected preset
+  const selectedPreset = presets.find(p => p.id === selectedPresetId);
+  
   // Handle Save Preset
   const handleSavePreset = async () => {
     if (!newPresetName.trim() || !user) return;
@@ -149,6 +156,39 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     } catch (e: any) {
         setErrorMessage(e.message || "Failed to save preset.");
     }
+  };
+
+  // Handle Delete Preset
+  const handleDeletePreset = async () => {
+    if (!presetToDelete || !user) return;
+    
+    try {
+        await dbService.deleteVoicePreset(user.id, presetToDelete.id);
+        setPresets(prev => prev.filter(p => p.id !== presetToDelete.id));
+        
+        // If the deleted preset was selected, switch to first available
+        if (selectedPresetId === presetToDelete.id) {
+            const remaining = presets.filter(p => p.id !== presetToDelete.id);
+            if (remaining.length > 0) {
+                setSelectedPresetId(remaining[0].id);
+                setReferenceText(remaining[0].referenceText);
+            } else {
+                setSelectedPresetId('');
+                setReferenceText('');
+            }
+        }
+        
+        setShowDeletePresetModal(false);
+        setPresetToDelete(null);
+    } catch (e: any) {
+        setErrorMessage(e.message || "Failed to delete preset.");
+    }
+  };
+
+  // Open delete confirmation
+  const openDeleteConfirmation = (preset: VoicePreset) => {
+    setPresetToDelete(preset);
+    setShowDeletePresetModal(true);
   };
 
   // Handle Tab Switching with Gating
@@ -617,6 +657,34 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
         </div>
       )}
 
+      {/* Delete Preset Modal */}
+      {showDeletePresetModal && presetToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in-up">
+            <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-sm shadow-2xl">
+                <h3 className="text-lg font-bold text-red-400 mb-2">Delete Preset</h3>
+                <p className="text-sm text-textMuted mb-6">Are you sure you want to delete "{presetToDelete.name}"? This action cannot be undone.</p>
+                <div className="flex gap-2 justify-end">
+                    <button 
+                        onClick={() => {
+                            setShowDeletePresetModal(false);
+                            setPresetToDelete(null);
+                        }}
+                        className="px-4 py-2 text-sm text-textMuted hover:text-white"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={handleDeletePreset}
+                        className="px-4 py-2 bg-red-500 text-white rounded-md text-sm font-bold hover:bg-red-400 transition-colors"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
+
+
       {/* Prominent Error Banner */}
       {errorMessage && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md animate-fade-in-down">
@@ -709,6 +777,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                           </div>
                       )}
                    </button>
+                    {selectedPreset?.isCustom && (
+                        <button
+                            onClick={() => openDeleteConfirmation(selectedPreset)}
+                            className="h-[46px] mb-[1px] px-3 flex items-center justify-center bg-surface border border-border rounded-md text-sm font-bold text-textMuted hover:text-red-400 hover:border-red-500/50 transition-colors"
+                            title="Delete preset"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
                 </div>
 
                 {/* TABS & INPUT */}
