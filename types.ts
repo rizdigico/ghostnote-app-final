@@ -14,6 +14,7 @@ export interface User {
   name: string;
   avatarUrl?: string;
   plan: UserPlan;
+  billingCycle?: 'monthly' | 'yearly';
   credits: number; // For 'echo' users
   joinedDate: string;
   instagramConnected?: boolean;
