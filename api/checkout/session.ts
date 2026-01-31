@@ -60,6 +60,9 @@ export default async function handler(req: any, res: any) {
       customer_email: userEmail || undefined,
       client_reference_id: userId,
       
+      // Enable promotion codes
+      allow_promotion_codes: true,
+      
       // Keep your existing success/cancel URLs
       success_url: `${req.headers.origin}/payment-success?success=true&plan=${isClonePlan ? 'clone' : 'syndicate'}`,
       cancel_url: `${req.headers.origin}/dashboard`,
