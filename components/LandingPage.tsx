@@ -38,6 +38,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
   }, []);
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
@@ -209,9 +210,27 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
       {/* Pricing */}
       <section className="py-24 bg-surface/20 border-y border-border/50">
          <div className="max-w-7xl mx-auto px-6">
-            <div className="text-center mb-16 reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out">
+            <div className="text-center mb-8 reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out">
                <h2 className="text-3xl font-bold mb-4">Choose Your Hardware</h2>
                <p className="text-textMuted">Scalable plans for freelancers and agencies.</p>
+            </div>
+
+            {/* Toggle Switch */}
+            <div className="flex justify-center items-center gap-4 mb-12">
+              <span className={`text-sm ${billingCycle === 'monthly' ? 'text-white font-bold' : 'text-gray-500'}`}>Monthly</span>
+              
+              <button 
+                onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
+                className="w-14 h-7 bg-gray-700 rounded-full relative transition-colors duration-300 focus:outline-none"
+              >
+                <div className={`absolute top-1 w-5 h-5 bg-accent rounded-full shadow-md transform transition-transform duration-300 ${
+                  billingCycle === 'yearly' ? 'translate-x-8' : 'translate-x-1'
+                }`} />
+              </button>
+
+              <span className={`text-sm ${billingCycle === 'yearly' ? 'text-white font-bold' : 'text-gray-500'}`}>
+                Yearly <span className="text-accent text-xs ml-1">(SAVE 20%)</span>
+              </span>
             </div>
 
             <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
@@ -233,26 +252,45 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-accent text-black text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest">Most Popular</div>
                   <div className="mb-6"><Zap className="text-accent" /></div>
                   <h3 className="text-xl font-bold mb-2 text-white">The Clone</h3>
-                  <div className="text-3xl font-bold mb-6">$29 <span className="text-sm font-normal text-textMuted">/ month</span></div>
+                  <div className="text-3xl font-bold mb-6">
+                    {billingCycle === 'monthly' ? '$29' : '$244'} 
+                    <span className="text-sm font-normal text-textMuted">/ {billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                  </div>
                   <ul className="space-y-3 mb-8 flex-1">
                      {['Unlimited Credits', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Priority Generation'].map((f, i) => (
                         <li key={i} className="flex gap-3 text-sm"><Check size={16} className="text-accent" /> {f}</li>
                      ))}
                   </ul>
-                  <button onClick={() => onEnterApp('clone')} className="w-full py-3 bg-accent text-black rounded-md text-sm font-bold hover:bg-white transition-colors uppercase tracking-wide">Get The Clone</button>
+                  <button onClick={() => onEnterApp('clone')} className="w-full py-3 bg-accent text-black rounded-md text-sm font-bold hover:bg-white transition-colors uppercase tracking-wide">
+                    {billingCycle === 'monthly' ? 'START 14-DAY FREE TRIAL' : 'START 14-DAY FREE TRIAL'}
+                  </button>
+                  {billingCycle === 'monthly' && (
+                    <p className="text-xs text-gray-500 mt-2 text-center">$0.00 due today. Cancel anytime.</p>
+                  )}
                </div>
 
                {/* Syndicate */}
                <div className="p-8 rounded-xl border border-purple-500/30 bg-background flex flex-col reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out delay-300">
+                  <div className="absolute top-0 right-0 bg-purple-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+                    BEST VALUE
+                  </div>
                   <div className="mb-6"><Crown className="text-purple-400" /></div>
                   <h3 className="text-xl font-bold mb-2">The Syndicate</h3>
-                  <div className="text-3xl font-bold mb-6">$99 <span className="text-sm font-normal text-textMuted">/ month</span></div>
+                  <div className="text-3xl font-bold mb-6">
+                    {billingCycle === 'monthly' ? '$99' : '$832'} 
+                    <span className="text-sm font-normal text-textMuted">/ {billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                  </div>
                   <ul className="space-y-3 mb-8 flex-1">
                      {['Everything in Clone', 'Bulk CSV Processing', 'API Access', 'Concierge Support'].map((f, i) => (
                         <li key={i} className="flex gap-3 text-sm"><Check size={16} className="text-purple-400" /> {f}</li>
                      ))}
                   </ul>
-                  <button onClick={() => onEnterApp('syndicate')} className="w-full py-3 bg-purple-600 text-white rounded-md text-sm font-bold hover:bg-purple-500 transition-colors uppercase tracking-wide">Join Syndicate</button>
+                  <button onClick={() => onEnterApp('syndicate')} className="w-full py-3 bg-purple-600 text-white rounded-md text-sm font-bold hover:bg-purple-500 transition-colors uppercase tracking-wide">
+                    UPGRADE NOW
+                  </button>
+                  {billingCycle === 'monthly' && (
+                    <p className="text-xs text-gray-500 mt-2 text-center">$99.00 billed monthly</p>
+                  )}
                </div>
             </div>
          </div>
