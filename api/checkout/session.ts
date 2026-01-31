@@ -23,6 +23,17 @@ export default async function handler(req: any, res: any) {
 
   console.log('Checkout request received:', { priceId, userId, userEmail, plan });
 
+  // Validate environment variables early
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.error('STRIPE_SECRET_KEY is not set');
+    return res.status(500).json({ error: 'Server configuration error: Missing Stripe key' });
+  }
+  
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+    console.error('FIREBASE_SERVICE_ACCOUNT_KEY is not set');
+    return res.status(500).json({ error: 'Server configuration error: Missing Firebase config' });
+  }
+
   try {
     // 1. FETCH USER DATA (To check trial eligibility)
     const userRef = db.collection('users').doc(userId);
@@ -77,10 +88,33 @@ export default async function handler(req: any, res: any) {
     // 4. CREATE SESSION
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
-    res.status(200).json({ sessionId: session.id });
+    console.log('Checkout session created successfully:', session.id);
+    
+    // Return the session ID so client can redirect
+    res.status(200).json({ 
+      sessionId: session.id,
+      url: session.url 
+    });
   } catch (error: any) {
     console.error('Checkout Error:', error);
-    const errorMessage = error.message || 'Unknown error';
+    
+    // Extract detailed error information
+    let errorMessage = 'Unknown error';
+    
+    if (error) {
+      if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      } else if (error.type) {
+        // Stripe errors often have 'type' and 'raw' properties
+        errorMessage = error.type;
+        if (error.raw?.message) {
+          errorMessage = `${error.type}: ${error.raw.message}`;
+        }
+      }
+    }
+    
     res.status(500).json({ error: 'Error creating checkout session: ' + errorMessage });
   }
 }
