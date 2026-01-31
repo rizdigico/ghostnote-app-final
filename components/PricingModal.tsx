@@ -54,12 +54,9 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       });
       
       const data = await res.json();
-      console.log('Checkout API response:', data);
       
-      if (data.url) {
-        window.location.href = data.url;
-      } else if (data.sessionId) {
-        // Fallback: redirect to Stripe checkout URL using session ID
+      if (data.sessionId) {
+        // Redirect to Stripe checkout using session ID
         window.location.href = `https://checkout.stripe.com/pay/${data.sessionId}`;
       } else {
         alert('Error creating checkout session: ' + (data.error || 'Unknown error'));

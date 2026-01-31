@@ -60,6 +60,9 @@ export default async function handler(req: any, res: any) {
       customer_email: userEmail || undefined,
       client_reference_id: userId,
       
+      // Enable promo codes for all subscriptions
+      allow_promotion_codes: true,
+      
       // Keep your existing success/cancel URLs
       success_url: `${req.headers.origin}/payment-success?success=true&plan=${isClonePlan ? 'clone' : 'syndicate'}`,
       cancel_url: `${req.headers.origin}/dashboard`,
@@ -74,15 +77,12 @@ export default async function handler(req: any, res: any) {
       }
     };
 
-    // 3. THE MAGIC SWITCH: Apply Trial ONLY for Clone Plan if Eligible
-    // Syndicate plan does NOT get a free trial
-    if (isClonePlan && !hasUsedTrial) {
-      console.log(`🎁 User ${userId} is eligible for a 14-day trial (Clone Plan).`);
+    // 3. APPLY TRIAL (Only if eligible)
+    if (!hasUsedTrial) {
+      console.log(`User ${userId} is eligible for a 14-day trial.`);
       sessionConfig.subscription_data.trial_period_days = 14;
-    } else if (isClonePlan && hasUsedTrial) {
-      console.log(`User ${userId} has already used their trial. Standard billing.`);
     } else {
-      console.log(`User ${userId} is subscribing to Syndicate plan - No trial available.`);
+      console.log(`User ${userId} has already used their trial. Standard billing.`);
     }
 
     // 4. CREATE SESSION
@@ -90,11 +90,7 @@ export default async function handler(req: any, res: any) {
 
     console.log('Checkout session created successfully:', session.id);
     
-    // Return the session ID so client can redirect
-    res.status(200).json({ 
-      sessionId: session.id,
-      url: session.url 
-    });
+    res.status(200).json({ sessionId: session.id });
   } catch (error: any) {
     console.error('Checkout Error:', error);
     
