@@ -19,7 +19,9 @@ const db = getFirestore();
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).end();
   
-  const { priceId, userId, userEmail } = req.body;
+  const { priceId, userId, userEmail, plan } = req.body;
+
+  console.log('Checkout request received:', { priceId, userId, userEmail, plan });
 
   try {
     // 1. FETCH USER DATA (To check trial eligibility)
@@ -31,14 +33,20 @@ export default async function handler(req: any, res: any) {
     const hasUsedTrial = userData?.hasUsedTrial || false;
 
     // 2. CONFIGURE SESSION
-    // Determine which plan based on priceId
-    const isClonePlan = priceId.includes('clone');
+    // Determine which plan based on priceId or plan param
+    const isClonePlan = priceId?.includes('clone') || plan === 'clone';
+    
+    // Validate required fields
+    if (!priceId) {
+      console.error('Missing priceId for checkout');
+      return res.status(400).json({ error: 'Missing priceId' });
+    }
     
     const sessionConfig: any = {
       mode: 'subscription',
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
-      customer_email: userEmail,
+      customer_email: userEmail || undefined,
       client_reference_id: userId,
       
       // Keep your existing success/cancel URLs
@@ -70,8 +78,9 @@ export default async function handler(req: any, res: any) {
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
     res.status(200).json({ sessionId: session.id });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Checkout Error:', error);
-    res.status(500).json({ error: 'Error creating checkout session' });
+    const errorMessage = error.message || 'Unknown error';
+    res.status(500).json({ error: 'Error creating checkout session: ' + errorMessage });
   }
 }

@@ -22,7 +22,8 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
   if (!isOpen) return null;
 
   const handlePlanSelection = async (planId: UserPlan) => {
-    const userId = auth.currentUser?.uid;
+    const user = auth.currentUser;
+    const userId = user?.uid;
     if (!userId) {
       // Save the plan to localStorage and redirect to login
       if (planId !== 'echo') {
@@ -49,7 +50,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       const res = await fetch('/api/checkout/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, priceId, plan: planId })
+        body: JSON.stringify({ userId, priceId, userEmail: user?.email, plan: planId })
       });
       
       const data = await res.json();
