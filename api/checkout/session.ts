@@ -1,40 +1,77 @@
 // api/checkout/session.ts
 import Stripe from 'stripe';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2026-01-28.clover' as any,
 });
 
+// Setup Firebase Admin if not already initialized
+if (!getApps().length) {
+  const serviceAccount = JSON.parse(
+    process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string
+  );
+  initializeApp({ credential: cert(serviceAccount) });
+}
+const db = getFirestore();
+
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') return res.status(405).end();
+  
+  const { priceId, userId, userEmail } = req.body;
 
   try {
-    // 1. Receive the 'plan' from the frontend
-    const { userId, priceId, plan } = req.body; 
+    // 1. FETCH USER DATA (To check trial eligibility)
+    const userRef = db.collection('users').doc(userId);
+    const userSnap = await userRef.get();
+    const userData = userSnap.data();
 
-    if (!userId) return res.status(400).json({ error: 'User ID is required' });
+    // Default to false if the field doesn't exist yet
+    const hasUsedTrial = userData?.hasUsedTrial || false;
 
-    const session = await stripe.checkout.sessions.create({
+    // 2. CONFIGURE SESSION
+    // Determine which plan based on priceId
+    const isClonePlan = priceId.includes('clone');
+    
+    const sessionConfig: any = {
       mode: 'subscription',
       payment_method_types: ['card'],
-      allow_promotion_codes: true,
       line_items: [{ price: priceId, quantity: 1 }],
-      
+      customer_email: userEmail,
       client_reference_id: userId,
-
-      // 2. ATTACH THE STICKY NOTE (METADATA)
+      
+      // Keep your existing success/cancel URLs
+      success_url: `${req.headers.origin}/payment-success?success=true&plan=${isClonePlan ? 'clone' : 'syndicate'}`,
+      cancel_url: `${req.headers.origin}/dashboard`,
+      
       metadata: {
-        planName: plan || 'syndicate' // Store 'clone' or 'syndicate' here
+        userId: userId,
+        planName: isClonePlan ? 'clone' : 'syndicate'
       },
+      
+      subscription_data: {
+        metadata: { userId: userId }
+      }
+    };
 
-      success_url: `${req.headers.origin}/payment-success?plan=${plan}&success=true`,
-      cancel_url: `${req.headers.origin}/dashboard?canceled=true`,
-    });
+    // 3. THE MAGIC SWITCH: Apply Trial ONLY for Clone Plan if Eligible
+    // Syndicate plan does NOT get a free trial
+    if (isClonePlan && !hasUsedTrial) {
+      console.log(`🎁 User ${userId} is eligible for a 14-day trial (Clone Plan).`);
+      sessionConfig.subscription_data.trial_period_days = 14;
+    } else if (isClonePlan && hasUsedTrial) {
+      console.log(`User ${userId} has already used their trial. Standard billing.`);
+    } else {
+      console.log(`User ${userId} is subscribing to Syndicate plan - No trial available.`);
+    }
 
-    return res.status(200).json({ url: session.url });
+    // 4. CREATE SESSION
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
-  } catch (error: any) {
-    console.error(error);
-    return res.status(500).json({ error: error.message });
+    res.status(200).json({ sessionId: session.id });
+  } catch (error) {
+    console.error('Checkout Error:', error);
+    res.status(500).json({ error: 'Error creating checkout session' });
   }
 }

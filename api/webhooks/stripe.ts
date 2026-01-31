@@ -4,7 +4,7 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
-import { buffer } from 'micro'; // You might need to install: npm install micro
+import { buffer } from 'micro';
 
 // 1. Setup Firebase Admin
 if (!getApps().length) {
@@ -46,45 +46,59 @@ export default async function handler(req: any, res: any) {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
-  // 4. HANDLE THE PAYMENT
+  // 4. HANDLE THE EVENT
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as any;
     const userId = session.client_reference_id;
-    
-    // Read the Plan Name from the sticky note (or default to syndicate)
-    const planName = session.metadata?.planName || 'syndicate'; 
+    const planName = session.metadata?.planName || 'syndicate';
 
     if (userId) {
-        console.log(`💰 Payment for ${planName} by User: ${userId}`);
+        console.log(`💰 Processing signup for ${planName} (User: ${userId})`);
 
-        // 1. Determine Credits
+        // A. Determine Credits
         let creditsAmount = 0;
         if (planName === 'syndicate') creditsAmount = 1000000; 
         if (planName === 'clone') creditsAmount = 500; 
 
-        // 2. CHECK EXISTING USER DATA
-        // We fetch the user first to see if they already have an API key.
+        // B. Get User & API Key Logic (The Fix from earlier)
         const userRef = db.collection('users').doc(userId);
         const userSnap = await userRef.get();
         const userData = userSnap.data();
 
-        // 3. DECIDE API KEY
-        // If they have a key, KEEP IT. If not, generate a new one.
         let finalApiKey = userData?.apiKey;
-        
         if (!finalApiKey) {
-            console.log("Generating new key for user...");
             finalApiKey = `key_${Math.random().toString(36).substring(2, 15)}`;
         }
 
-        // 4. UPDATE DATABASE (Safe Update)
+        // C. UPDATE DATABASE (With Trial Logic)
         await userRef.update({
             plan: planName,
+            status: 'active', // Important: Active immediately, even if it's a trial
             credits: creditsAmount,
-            apiKey: finalApiKey // This now keeps the old key if it existed
+            apiKey: finalApiKey,
+            
+            // MARK TRIAL AS USED
+            // This prevents them from cancelling and getting another 14 days later
+            hasUsedTrial: true 
         });
         
-        console.log(`✅ User updated: ${planName}. Key Preserved: ${!!userData?.apiKey}`);
+        console.log(`✅ User unlocked. Trial Marked as Used.`);
+    }
+  }
+
+  // 5. HANDLE TRIAL END (when subscription becomes active after trial)
+  if (event.type === 'customer.subscription.updated') {
+    const subscription = event.data.object as any;
+    const userId = subscription.metadata?.userId;
+    
+    if (userId && subscription.status === 'active' && subscription.trial_end) {
+        // Check if trial just ended (within last 24 hours)
+        const trialEndedRecently = (Date.now() / 1000) - subscription.trial_end < 86400;
+        
+        if (trialEndedRecently) {
+            console.log(`Trial ended for user ${userId}, subscription is now active`);
+            // Could send email notification here
+        }
     }
   }
 

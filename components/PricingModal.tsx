@@ -169,10 +169,24 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
                   {currentPlan === plan.id ? 'CURRENT PLAN' : (
                     <>
                        {plan.id !== 'echo' && <Lock size={14} />}
-                       {plan.id === 'echo' ? 'SELECT PLAN' : 'UPGRADE NOW'}
+                       {plan.id === 'echo' ? 'SELECT PLAN' : 
+                        plan.id === 'clone' ? 'START 14-DAY FREE TRIAL' : 'UPGRADE NOW'}
                     </>
                   )}
                 </button>
+                
+                {/* Payment clarification note - ONLY for Clone plan (has free trial) */}
+                {plan.id === 'clone' && currentPlan !== plan.id && (
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    $0.00 due today. Cancel anytime.
+                  </p>
+                )}
+                {/* Syndicate plan - no trial, show regular pricing */}
+                {plan.id === 'syndicate' && currentPlan !== plan.id && (
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    $99.00 billed monthly.
+                  </p>
+                )}
               </div>
             ))}
           </div>
