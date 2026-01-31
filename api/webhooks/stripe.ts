@@ -56,17 +56,17 @@ export default async function handler(req: any, res: any) {
         console.log(`💰 Processing signup for ${planName} (User: ${userId})`);
 
         // A. Determine Credits based on plan and billing frequency
-        // Detect yearly vs monthly by amount paid (in cents)
-        const amountPaid = session.amount_total;
+        // Use 'amount_subtotal' to check the price BEFORE coupons/discounts
+        const originalPrice = session.amount_subtotal;
         let creditsAmount = 0;
         let billingCycle = 'monthly';
 
         if (planName === 'clone') {
             // Yearly: $244 (24400 cents), Monthly: $29 (2900 cents)
-            if (amountPaid > 10000) {
+            if (originalPrice > 10000) {
                 creditsAmount = 500 * 12; // Yearly: 6,000 Credits
                 billingCycle = 'yearly';
-                console.log("📅 Detected Yearly Clone Plan");
+                console.log("📅 Detected Yearly Clone Plan (via Subtotal)");
             } else {
                 creditsAmount = 500; // Monthly
                 console.log("📅 Detected Monthly Clone Plan");
@@ -75,10 +75,10 @@ export default async function handler(req: any, res: any) {
         
         if (planName === 'syndicate') {
             // Yearly: $832 (83200 cents), Monthly: $99 (9900 cents)
-            if (amountPaid > 30000) {
+            if (originalPrice > 30000) {
                 creditsAmount = 1000000 * 12; // Yearly: 12,000,000 Credits
                 billingCycle = 'yearly';
-                console.log("📅 Detected Yearly Syndicate Plan");
+                console.log("📅 Detected Yearly Syndicate Plan (via Subtotal)");
             } else {
                 creditsAmount = 1000000; // Monthly
                 console.log("📅 Detected Monthly Syndicate Plan");
