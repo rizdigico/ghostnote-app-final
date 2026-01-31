@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Check, X, Zap, Crown, Ghost, Lock } from 'lucide-react';
 import { UserPlan } from '../types';
 import { auth } from '../src/lib/firebase';
@@ -6,8 +6,15 @@ import { auth } from '../src/lib/firebase';
 // FIX: Price IDs for Stripe checkout
 const PLAN_PRICE_IDS: Record<UserPlan, string> = {
   echo: '',                                      // Free Plan (No Stripe ID needed)
-  clone: 'price_1StVDBJeTnM8efjPOdGRpJ93',      // Put your Clone Price ID here (if ready)
-  syndicate: 'price_1StVDAJeTnM8efjPRUpn1xOV',  // Your Syndicate Price ID
+  clone: 'price_1StVDBJeTnM8efjPOdGRpJ93',      // Clone Monthly
+  syndicate: 'price_1StVDAJeTnM8efjPRUpn1xOV',  // Syndicate Monthly
+};
+
+// Yearly Price IDs
+const YEARLY_PRICE_IDS: Record<UserPlan, string> = {
+  echo: '',
+  clone: 'price_1SvWSXJeTnM8efjPdXGobQAy',
+  syndicate: 'price_1SvWUwJeTnM8efjPrSBZXYQV',
 };
 
 interface PricingModalProps {
@@ -16,9 +23,12 @@ interface PricingModalProps {
   onSelectPlan: (plan: UserPlan) => void;
   currentPlan: UserPlan;
   onViewLegal?: (type: 'terms' | 'privacy') => void;
+  initialBillingCycle?: 'monthly' | 'yearly';
 }
 
-const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPlan, currentPlan, onViewLegal }) => {
+const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPlan, currentPlan, onViewLegal, initialBillingCycle = 'monthly' }) => {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>(initialBillingCycle);
+  
   if (!isOpen) return null;
 
   const handlePlanSelection = async (planId: UserPlan) => {
@@ -28,6 +38,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       // Save the plan to localStorage and redirect to login
       if (planId !== 'echo') {
         localStorage.setItem('pendingPlan', planId);
+        localStorage.setItem('pendingBilling', billingCycle);
       }
       // Redirect to home with login modal
       window.location.href = '/?showLogin=true&plan=' + planId;
@@ -42,7 +53,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
     }
 
     // 2. IF PAID PLAN (CLONE/SYNDICATE): Go to Stripe
-    const priceId = PLAN_PRICE_IDS[planId];
+    const priceId = billingCycle === 'yearly' ? YEARLY_PRICE_IDS[planId] : PLAN_PRICE_IDS[planId];
     if (!priceId) return; // Safety check
 
     // Call your Checkout API
@@ -85,8 +96,8 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
     {
       id: 'clone' as UserPlan,
       name: 'The Clone',
-      price: '$29',
-      period: '/ month',
+      price: billingCycle === 'monthly' ? '$29' : '$244',
+      period: billingCycle === 'monthly' ? '/ month' : '/ year',
       popular: true,
       icon: <Zap className="w-6 h-6 text-black" />,
       features: ['Unlimited Credits', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Priority Generation'],
@@ -97,8 +108,8 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
     {
       id: 'syndicate' as UserPlan,
       name: 'The Syndicate',
-      price: '$99',
-      period: '/ month',
+      price: billingCycle === 'monthly' ? '$99' : '$832',
+      period: billingCycle === 'monthly' ? '/ month' : '/ year',
       icon: <Crown className="w-6 h-6" />,
       features: ['Unlimited Credits', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Bulk CSV Processing', 'API Access'],
       disabled: [],
@@ -119,6 +130,24 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
         </button>
 
         <div className="p-8 md:p-12">
+          {/* Toggle Switch */}
+          <div className="flex justify-center items-center gap-4 mb-8">
+            <span className={`text-sm ${billingCycle === 'monthly' ? 'text-white font-bold' : 'text-gray-500'}`}>Monthly</span>
+            
+            <button 
+              onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
+              className="w-14 h-7 bg-gray-700 rounded-full relative transition-colors duration-300 focus:outline-none"
+            >
+              <div className={`absolute top-1 w-5 h-5 bg-accent rounded-full shadow-md transform transition-transform duration-300 ${
+                billingCycle === 'yearly' ? 'translate-x-8' : 'translate-x-1'
+              }`} />
+            </button>
+
+            <span className={`text-sm ${billingCycle === 'yearly' ? 'text-white font-bold' : 'text-gray-500'}`}>
+              Yearly <span className="text-accent text-xs ml-1">(SAVE 20%)</span>
+            </span>
+          </div>
+
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-textMain mb-3 tracking-tight">Upgrade Your Workflow</h2>
             <p className="text-textMuted">Unlock the full power of GhostNote's mimicry engine.</p>
@@ -184,13 +213,17 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
                 {/* Payment clarification note - ONLY for Clone plan (has free trial) */}
                 {plan.id === 'clone' && currentPlan !== plan.id && (
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    $0.00 due today. Cancel anytime.
+                    {billingCycle === 'yearly' 
+                      ? '$244 billed annually. Save 20%.' 
+                      : '$0.00 due today. Cancel anytime.'}
                   </p>
                 )}
                 {/* Syndicate plan - no trial, show regular pricing */}
                 {plan.id === 'syndicate' && currentPlan !== plan.id && (
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    $99.00 billed monthly.
+                    {billingCycle === 'yearly'
+                      ? '$832 billed annually. Save 20%.'
+                      : '$99.00 billed monthly.'}
                   </p>
                 )}
               </div>

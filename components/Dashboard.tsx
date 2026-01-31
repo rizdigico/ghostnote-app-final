@@ -21,6 +21,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   
   // Local UI State
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+  const [upgradeBillingCycle, setUpgradeBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
   const [intensity, setIntensity] = useState<number>(50);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
@@ -88,8 +89,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     const params = new URLSearchParams(window.location.search);
     const checkout = params.get('checkout');
     const plan = params.get('plan');
+    const billing = params.get('billing');
     
     if (checkout === 'true' && plan && ['clone', 'syndicate'].includes(plan)) {
+      // Set the billing cycle from URL param
+      if (billing === 'yearly') {
+        setUpgradeBillingCycle('yearly');
+      }
       // Open the upgrade modal with the specific plan
       setShowUpgradeModal(true);
       // Clean the URL
@@ -615,6 +621,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
         currentPlan={userPlan}
         onSelectPlan={handleUpgrade}
         onViewLegal={onViewLegal}
+        initialBillingCycle={upgradeBillingCycle}
       />
       
       <AccountModal 

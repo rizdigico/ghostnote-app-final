@@ -23,10 +23,12 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
       await loginWithGoogle();
       // Check for pending plan after login
       const pendingPlan = localStorage.getItem('pendingPlan');
+      const pendingBilling = localStorage.getItem('pendingBilling') || 'monthly';
       if (pendingPlan && ['clone', 'syndicate'].includes(pendingPlan)) {
         // Redirect to dashboard with checkout param
         localStorage.removeItem('pendingPlan');
-        window.location.href = '/dashboard?plan=' + pendingPlan + '&checkout=true';
+        localStorage.removeItem('pendingBilling');
+        window.location.href = '/dashboard?plan=' + pendingPlan + '&billing=' + pendingBilling + '&checkout=true';
         return;
       }
       onSuccess();
@@ -57,10 +59,12 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onViewLegal }) => {
       setShowEmailForm(false);
       // Check for pending plan after login
       const pendingPlan = localStorage.getItem('pendingPlan');
+      const pendingBilling = localStorage.getItem('pendingBilling') || 'monthly';
       if (pendingPlan && ['clone', 'syndicate'].includes(pendingPlan)) {
         // Redirect to dashboard with checkout param
         localStorage.removeItem('pendingPlan');
-        window.location.href = '/dashboard?plan=' + pendingPlan + '&checkout=true';
+        localStorage.removeItem('pendingBilling');
+        window.location.href = '/dashboard?plan=' + pendingPlan + '&billing=' + pendingBilling + '&checkout=true';
         return;
       }
       onSuccess();
