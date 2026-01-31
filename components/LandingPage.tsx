@@ -229,7 +229,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
               </button>
 
               <span className={`text-sm ${billingCycle === 'yearly' ? 'text-white font-bold' : 'text-gray-500'}`}>
-                Yearly <span className="text-accent text-xs ml-1">(SAVE 20%)</span>
+                Yearly <span className="text-accent text-xs ml-1">(SAVE YEARLY 30%)</span>
               </span>
             </div>
 
