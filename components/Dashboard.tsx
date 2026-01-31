@@ -209,23 +209,40 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   // --- SECURITY: FILE VALIDATION ---
   const validateFileSecurity = (file: File): boolean => {
     // 1. Strict Size Limit (5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_FILE_SIZE) {
       setErrorMessage("File too large for security reasons. Max 5MB.");
       return false;
     }
 
     // 2. Extension vs MIME Type Check
-    const ext = file.name.split('.').pop()?.toLowerCase();
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
     const mime = file.type;
     
-    let isValid = false;
-    if (ext === 'pdf' && mime === 'application/pdf') isValid = true;
-    if (ext === 'txt' && mime === 'text/plain') isValid = true;
-    // CSV allows multiple MIME types depending on OS/Browser
-    if (ext === 'csv' && (mime.includes('csv') || mime.includes('excel') || mime === 'text/plain')) isValid = true;
-
-    if (!isValid) {
+    // Allowed extensions and their MIME types
+    const allowedTypes: Record<string, string[]> = {
+      'pdf': ['application/pdf'],
+      'txt': ['text/plain'],
+      'csv': ['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel']
+    };
+    
+    // Check if extension is allowed
+    if (!allowedTypes[ext]) {
+      setErrorMessage("Security Alert: Unsupported file type.");
+      return false;
+    }
+    
+    // Check if MIME type matches allowed types for this extension
+    const allowedMimes = allowedTypes[ext];
+    if (!allowedMimes.includes(mime)) {
       setErrorMessage("Security Alert: File type does not match extension.");
+      return false;
+    }
+    
+    // 3. Check for dangerous characters in filename
+    const dangerousPattern = /[<>:\"/|?*\x00-\x1F]/;
+    if (dangerousPattern.test(file.name)) {
+      setErrorMessage("Security Alert: Invalid characters in filename.");
       return false;
     }
     

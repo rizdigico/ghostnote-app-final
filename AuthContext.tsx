@@ -38,6 +38,38 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const googleProvider = new GoogleAuthProvider();
 
+// --- SECURITY: SECURE API KEY GENERATION ---
+function generateSecureApiKey(): string {
+  // Use crypto API for cryptographically secure random values
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  const hex = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `key_${hex}`;
+}
+
+// --- SECURITY: AUTH RATE LIMITING ---
+const authAttempts = new Map<string, { count: number; resetTime: number }>();
+const AUTH_RATE_LIMIT = 5; // attempts per 15 minutes
+const AUTH_WINDOW = 15 * 60 * 1000; // 15 minutes
+
+function checkAuthRateLimit(email: string): boolean {
+  const now = Date.now();
+  const key = email.toLowerCase();
+  const record = authAttempts.get(key);
+  
+  if (!record || now > record.resetTime) {
+    authAttempts.set(key, { count: 1, resetTime: now + AUTH_WINDOW });
+    return true;
+  }
+  
+  if (record.count >= AUTH_RATE_LIMIT) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
 // Helper function to ensure user document exists in Firestore
 const ensureUserDocument = async (firebaseUser: any) => {
   const userDocRef = doc(db, 'users', firebaseUser.uid);
@@ -53,8 +85,8 @@ const ensureUserDocument = async (firebaseUser: any) => {
       credits: 5,
       joinedDate: new Date().toISOString(),
       instagramConnected: false,
-      // Generate API key immediately for all new users
-      apiKey: `key_${Math.random().toString(36).substring(2, 15)}`,
+      // Generate secure API key
+      apiKey: generateSecureApiKey(),
       createdAt: new Date()
     };
     await setDoc(userDocRef, newUser);
@@ -202,6 +234,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const signupWithEmail = async (email: string, password: string) => {
+    // --- SECURITY: RATE LIMIT CHECK ---
+    if (!checkAuthRateLimit(email)) {
+      setAuthError('Too many signup attempts. Please try again in 15 minutes.');
+      setIsLoading(false);
+      throw new Error('Too many signup attempts');
+    }
+    
     setIsLoading(true);
     setAuthError(null);
     try {
@@ -219,6 +258,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const loginWithEmail = async (email: string, password: string) => {
+    // --- SECURITY: RATE LIMIT CHECK ---
+    if (!checkAuthRateLimit(email)) {
+      setAuthError('Too many login attempts. Please try again in 15 minutes.');
+      setIsLoading(false);
+      return;
+    }
+    
     setIsLoading(true);
     setAuthError(null);
     try {
@@ -346,7 +392,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const generateApiKey = async () => {
     if (!user) return;
     try {
-      const apiKey = 'key_' + Math.random().toString(36).substr(2, 32);
+      // Generate cryptographically secure API key
+      const apiKey = generateSecureApiKey();
       const userDocRef = doc(db, 'users', user.id);
       await updateDoc(userDocRef, { apiKey });
       setUser({ ...user, apiKey });

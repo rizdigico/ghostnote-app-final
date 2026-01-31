@@ -1,5 +1,6 @@
 // api/v1/rewrite.ts
 // FIXED: Allows Clone/Echo to use the Dashboard, but blocks them from external API.
+// ENHANCED: Security measures for API protection
 
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -12,6 +13,36 @@ if (!getApps().length) {
 }
 
 const db = getFirestore();
+
+// --- SECURITY: RATE LIMITING ---
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT = 20; // requests per minute
+const RATE_WINDOW = 60 * 1000; // 1 minute
+
+function checkRateLimit(clientId: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(clientId);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(clientId, { count: 1, resetTime: now + RATE_WINDOW });
+    return true;
+  }
+  
+  if (record.count >= RATE_LIMIT) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
+// --- SECURITY: INPUT SANITIZATION ---
+function sanitizeInput(input: string, maxLength: number = 10000): string {
+  if (!input || typeof input !== 'string') return '';
+  // Remove null bytes and control characters
+  const cleaned = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  return cleaned.slice(0, maxLength);
+}
 
 // --- RETRY LOGIC ---
 async function fetchWithRetry(url: string, options: any, retries = 3) {
@@ -52,6 +83,21 @@ export default async function handler(req: any, res: any) {
     }
 
     const token = authHeader.split(' ')[1];
+    
+    // Basic token validation
+    if (!token || token.length < 10) {
+      return res.status(401).json({ error: 'Invalid token format.' });
+    }
+    
+    // --- SECURITY: RATE LIMIT CHECK ---
+    const clientId = req.headers['x-forwarded-for'] || 
+                     req.headers['x-real-ip'] || 
+                     'unknown';
+    
+    if (!checkRateLimit(clientId)) {
+      return res.status(429).json({ error: 'Rate limit exceeded. Please try again later.' });
+    }
+    
     const user = await validateApiKey(token);
 
     if (!user) return res.status(403).json({ error: 'Invalid API Key.' });
@@ -73,9 +119,21 @@ export default async function handler(req: any, res: any) {
       return res.status(402).json({ error: 'Insufficient credits.' });
     }
 
-    // --- EXECUTE AI ---
-    const { reference_text, draft_text } = req.body;
-    const systemPrompt = `You are a Ghostwriter. Style: "${reference_text || 'Professional'}". Rewrite the user's draft. Return ONLY the text.`;
+    // 4. Validate and sanitize input
+    const { reference_text, draft_text } = req.body || {};
+    
+    if (!reference_text || !draft_text) {
+      return res.status(400).json({ error: 'Missing required fields.' });
+    }
+    
+    const sanitizedReference = sanitizeInput(reference_text, 5000);
+    const sanitizedDraft = sanitizeInput(draft_text, 5000);
+    
+    if (!sanitizedReference || !sanitizedDraft) {
+      return res.status(400).json({ error: 'Invalid input after sanitization.' });
+    }
+
+    const systemPrompt = `You are a Ghostwriter. Style: "${sanitizedReference || 'Professional'}". Rewrite the user's draft. Return ONLY the text.`;
     
     const aiResponse = await fetchWithRetry('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -89,8 +147,9 @@ export default async function handler(req: any, res: any) {
         model: "meta-llama/llama-3.3-70b-instruct",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: draft_text }
-        ]
+          { role: "user", content: sanitizedDraft }
+        ],
+        max_tokens: 2000, // Prevent excessive output
       }),
     });
 
@@ -110,6 +169,7 @@ export default async function handler(req: any, res: any) {
 
   } catch (error: any) {
     console.error(error);
-    return res.status(500).json({ error: error.message });
+    // Don't leak error details in production
+    return res.status(500).json({ error: 'An error occurred while processing your request.' });
   }
 }

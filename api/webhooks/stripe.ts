@@ -1,5 +1,6 @@
 // api/webhooks/stripe.ts
 // AUTOMATION: Listens for Stripe payments & Upgrades users automatically.
+// ENHANCED: Security measures for payment processing
 
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -20,6 +21,31 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2026-01-28.clover', // Use your latest version
 });
 
+// --- SECURITY: WEBHOOK SIGNATURE VERIFICATION ---
+// This is already handled by stripe.webhooks.constructEvent below
+
+// --- SECURITY: RATE LIMITING FOR WEBHOOKS ---
+const webhookAttempts = new Map<string, { count: number; resetTime: number }>();
+const WEBHOOK_RATE_LIMIT = 100; // requests per hour
+const WEBHOOK_WINDOW = 60 * 60 * 1000; // 1 hour
+
+function checkWebhookRateLimit(customerId: string): boolean {
+  const now = Date.now();
+  const record = webhookAttempts.get(customerId);
+  
+  if (!record || now > record.resetTime) {
+    webhookAttempts.set(customerId, { count: 1, resetTime: now + WEBHOOK_WINDOW });
+    return true;
+  }
+  
+  if (record.count >= WEBHOOK_RATE_LIMIT) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
 // This prevents Next.js from messing up the "Signature" check
 export const config = {
   api: {
@@ -34,6 +60,12 @@ export default async function handler(req: any, res: any) {
 
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  // --- SECURITY: VALIDATE WEBHOOK SECRET EXISTS ---
+  if (!webhookSecret) {
+    console.error('Webhook secret not configured');
+    return res.status(500).send('Webhook configuration error');
+  }
 
   let event;
 
@@ -50,7 +82,27 @@ export default async function handler(req: any, res: any) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as any;
     const userId = session.client_reference_id;
+    const customerId = session.customer;
+    
+    // --- SECURITY: RATE LIMIT CHECK ---
+    if (customerId && !checkWebhookRateLimit(customerId)) {
+      console.warn(`Rate limit exceeded for customer: ${customerId}`);
+      return res.status(429).send('Rate limit exceeded');
+    }
+    
+    // --- SECURITY: VALIDATE USER ID ---
+    if (!userId || typeof userId !== 'string' || userId.length < 20) {
+      console.error('Invalid user ID in webhook');
+      return res.status(400).send('Invalid user ID');
+    }
+    
     const planName = session.metadata?.planName || 'syndicate';
+    
+    // Validate plan name
+    if (!['clone', 'syndicate'].includes(planName)) {
+      console.error('Invalid plan name in webhook');
+      return res.status(400).send('Invalid plan');
+    }
     
     if (userId) {
         console.log(`💰 Processing signup for ${planName} (User: ${userId})`);
@@ -90,9 +142,19 @@ export default async function handler(req: any, res: any) {
         const userSnap = await userRef.get();
         const userData = userSnap.data();
 
+        // --- SECURITY: CHECK USER EXISTS ---
+        if (!userSnap.exists) {
+            console.error(`User not found: ${userId}`);
+            return res.status(404).send('User not found');
+        }
+
         let finalApiKey = userData?.apiKey;
         if (!finalApiKey) {
-            finalApiKey = `key_${Math.random().toString(36).substring(2, 15)}`;
+            // Generate secure API key
+            const array = new Uint8Array(32);
+            crypto.getRandomValues(array);
+            const hex = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+            finalApiKey = `key_${hex}`;
         }
 
         // C. UPDATE DATABASE

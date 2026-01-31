@@ -3,11 +3,63 @@ export const config = {
   runtime: 'edge',
 };
 
+// --- SECURITY: RATE LIMITING ---
+// Simple in-memory rate limiter (in production, use Redis)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT = 10; // requests per minute
+const RATE_WINDOW = 60 * 1000; // 1 minute
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW });
+    return true;
+  }
+  
+  if (record.count >= RATE_LIMIT) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
+// --- SECURITY: INPUT SANITIZATION ---
+function sanitizeInput(input: string, maxLength: number = 10000): string {
+  if (!input) return '';
+  // Remove null bytes and control characters (except newlines/tabs)
+  const cleaned = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  return cleaned.slice(0, maxLength);
+}
+
+function sanitizeFileName(fileName: string): string {
+  // Remove path traversal attempts and dangerous characters
+  const dangerous = /[<>:"/\\|?*\x00-\x1F]/g;
+  const sanitized = fileName.replace(dangerous, '_');
+  // Limit length
+  return sanitized.slice(0, 255);
+}
+
 export default async function handler(req: Request) {
   const encoder = new TextEncoder();
 
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
+  }
+
+  // --- SECURITY: GET CLIENT IP ---
+  const ip = req.headers.get('x-forwarded-for') || 
+             req.headers.get('x-real-ip') || 
+             'unknown';
+  
+  // --- SECURITY: RATE LIMIT CHECK ---
+  if (!checkRateLimit(ip)) {
+    return new Response('Rate limit exceeded. Please try again later.', { 
+      status: 429,
+      headers: { 'Retry-After': '60' }
+    });
   }
 
   const readable = new ReadableStream({
@@ -23,31 +75,39 @@ export default async function handler(req: Request) {
         }
 
         // 2. Parse Input - match Dashboard payload
-        const { draft, referenceText, intensity } = await req.json();
+        const body = await req.json().catch(() => null);
+        if (!body) {
+          controller.enqueue(encoder.encode("\n[Error: Invalid request body]"));
+          controller.close();
+          return;
+        }
         
-        // Validate and clamp intensity to valid range (0-100)
-        const validIntensity = Math.min(100, Math.max(0, Number(intensity) || 50));
+        const { draft, referenceText, intensity } = body;
         
-        // Validate input
-        if (!draft || !draft.trim()) {
+        // 3. Validate and sanitize input
+        if (!draft || typeof draft !== 'string') {
           controller.enqueue(encoder.encode("\n[Error: No text was provided for rewriting. Please enter some text to rewrite.]"));
           controller.close();
           return;
         }
         
-        if (!referenceText || !referenceText.trim()) {
+        if (!referenceText || typeof referenceText !== 'string') {
           controller.enqueue(encoder.encode("\n[Error: Reference text is required. Please provide a style reference.]"));
           controller.close();
           return;
         }
         
-        // 3. Define the Model - Meta: Llama 3.3 70B Instruct from OpenRouter
+        // Sanitize inputs to prevent injection attacks
+        const sanitizedDraft = sanitizeInput(draft, 5000);
+        const sanitizedReference = sanitizeInput(referenceText, 5000);
+        const validIntensity = Math.min(100, Math.max(0, Number(intensity) || 50));
+        
+        // 4. Define the Model - Meta: Llama 3.3 70B Instruct from OpenRouter
         const MODEL_ID = "meta-llama/llama-3.3-70b-instruct";
 
-        // This message proves you are running the NEW code
         controller.enqueue(encoder.encode(`Initiating GhostNote...\n\n`));
 
-        // 4. Send Request to OpenRouter
+        // 5. Send Request to OpenRouter
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -61,14 +121,15 @@ export default async function handler(req: Request) {
             messages: [
               { 
                 role: "system", 
-                content: `You are a professional ghostwriter. Analyze the reference text to understand the writing style, tone, and voice. Then rewrite the user's draft to match that style. Intensity: ${validIntensity}%. Return ONLY the rewritten text, no explanations.\n\nReference Style:\n${referenceText.slice(0, 1000)}` 
+                content: `You are a professional ghostwriter. Analyze the reference text to understand the writing style, tone, and voice. Then rewrite the user's draft to match that style. Intensity: ${validIntensity}%. Return ONLY the rewritten text, no explanations.\n\nReference Style:\n${sanitizedReference}` 
               },
               { 
                 role: "user", 
-                content: `Rewrite this text in the style of the reference:\n\n${draft}` 
+                content: `Rewrite this text in the style of the reference:\n\n${sanitizedDraft}` 
               }
             ],
             stream: true, 
+            max_tokens: 2000, // Prevent excessive output
           }),
         });
 
