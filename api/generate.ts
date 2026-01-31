@@ -41,8 +41,8 @@ export default async function handler(req: Request) {
           return;
         }
         
-        // 3. Define the Model - Meta: Llama 3.3 70B Instruct (free) from OpenRouter
-        const MODEL_ID = "meta-llama/llama-3.3-70b-instruct:free";
+        // 3. Define the Model - Meta: Llama 3.3 70B Instruct from OpenRouter
+        const MODEL_ID = "meta-llama/llama-3.3-70b-instruct";
 
         // This message proves you are running the NEW code
         controller.enqueue(encoder.encode(`Initiating GhostNote...\n\n`));

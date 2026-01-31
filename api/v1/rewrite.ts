@@ -86,7 +86,7 @@ export default async function handler(req: any, res: any) {
         'X-Title': 'GhostNote API',
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-3.3-70b-instruct:free",
+        model: "meta-llama/llama-3.3-70b-instruct",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: draft_text }
