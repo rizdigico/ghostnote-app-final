@@ -207,6 +207,281 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
          </div>
       </section>
 
+      {/* How It Works - UI Screenshots */}
+      <section className="py-24 px-6 bg-surface/10">
+         <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16 reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out">
+               <h2 className="text-3xl font-bold mb-4">See It In Action</h2>
+               <p className="text-textMuted">Your interface before you sign up.</p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-8">
+               {/* Screenshot 1: Dashboard Overview */}
+               <div className="reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out delay-100">
+                  <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-2xl">
+                     {/* Browser Chrome */}
+                     <div className="bg-background border-b border-border px-4 py-3 flex items-center gap-2">
+                        <div className="flex gap-1.5">
+                           <div className="w-3 h-3 rounded-full bg-red-500/50" />
+                           <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
+                           <div className="w-3 h-3 rounded-full bg-green-500/50" />
+                        </div>
+                        <div className="flex-1 bg-surface rounded text-xs text-textMuted px-3 py-1 mx-4">ghostnote.app/dashboard</div>
+                     </div>
+                     {/* UI Screenshot Content */}
+                     <div className="p-4 bg-gradient-to-br from-gray-900 to-black aspect-video flex items-center justify-center relative overflow-hidden">
+                        {/* Mock Dashboard UI */}
+                        <div className="w-full h-full bg-background rounded-lg border border-border overflow-hidden flex flex-col">
+                           {/* Mock Header */}
+                           <div className="h-8 bg-surface border-b border-border flex items-center px-3 gap-2">
+                              <div className="w-4 h-4 bg-white rounded-sm flex items-center justify-center">
+                                 <div className="w-1.5 h-1.5 bg-black rounded-full" />
+                              </div>
+                              <span className="text-[8px] font-bold tracking-widest text-textMain">GHOSTNOTE</span>
+                              <div className="ml-auto flex items-center gap-2">
+                                 <div className="w-12 h-3 bg-surface border border-border rounded text-[6px] text-textMuted px-1 flex items-center">5 / 5</div>
+                              </div>
+                           </div>
+                           {/* Mock Content */}
+                           <div className="flex-1 flex">
+                              {/* Left Panel */}
+                              <div className="flex-1 p-3 space-y-2">
+                                 {/* Tone Preset */}
+                                 <div className="space-y-1">
+                                    <label className="text-[6px] text-textMuted uppercase tracking-wider">Tone Preset</label>
+                                    <div className="h-6 bg-surface border border-border rounded flex items-center px-2">
+                                       <span className="text-[8px] text-textMain">Casual Tech Bro</span>
+                                       <span className="ml-auto text-[6px] text-textMuted">▼</span>
+                                    </div>
+                                 </div>
+                                 {/* Tabs */}
+                                 <div className="flex gap-1">
+                                    <div className="px-2 py-1 bg-background border border-border/50 rounded text-[6px] text-textMain">PASTE</div>
+                                    <div className="px-2 py-1 bg-surface text-[6px] text-textMuted rounded">FILE</div>
+                                    <div className="px-2 py-1 bg-surface text-[6px] text-textMuted rounded flex items-center gap-0.5">
+                                       <span className="w-1.5 h-1.5 border border-textMuted/30 rounded-full"></span>
+                                       BULK
+                                    </div>
+                                 </div>
+                                 {/* Text Area */}
+                                 <div className="h-16 bg-surface border border-border rounded p-2">
+                                    <p className="text-[6px] text-textMuted/50 font-mono">// Paste existing content...</p>
+                                 </div>
+                                 {/* Intensity Slider */}
+                                 <div className="space-y-1 pt-1">
+                                    <div className="flex justify-between">
+                                       <span className="text-[6px] text-textMuted uppercase">Mimicry Intensity</span>
+                                       <span className="text-[6px] text-accent">50%</span>
+                                    </div>
+                                    <div className="h-1 bg-surface rounded-full overflow-hidden">
+                                       <div className="w-1/2 h-full bg-accent"></div>
+                                    </div>
+                                 </div>
+                              </div>
+                              {/* Right Panel - Output */}
+                              <div className="w-1/3 bg-surface border-l border-border p-2">
+                                 <div className="text-[6px] text-textMuted uppercase tracking-wider mb-2">Output</div>
+                                 <div className="h-20 border border-dashed border-border/30 rounded flex items-center justify-center">
+                                    <span className="text-[6px] text-textMuted/30">Awaiting Input</span>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                  <div className="mt-4 text-center">
+                     <h3 className="text-sm font-bold text-white mb-1">Step 1: Choose Your Voice</h3>
+                     <p className="text-xs text-textMuted">Select from preset tones like "Casual Tech Bro" or "Professional CEO"</p>
+                  </div>
+               </div>
+
+               {/* Screenshot 2: Style Upload */}
+               <div className="reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out delay-200">
+                  <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-2xl">
+                     {/* Browser Chrome */}
+                     <div className="bg-background border-b border-border px-4 py-3 flex items-center gap-2">
+                        <div className="flex gap-1.5">
+                           <div className="w-3 h-3 rounded-full bg-red-500/50" />
+                           <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
+                           <div className="w-3 h-3 rounded-full bg-green-500/50" />
+                        </div>
+                        <div className="flex-1 bg-surface rounded text-xs text-textMuted px-3 py-1 mx-4">ghostnote.app/upload</div>
+                     </div>
+                     {/* UI Screenshot Content */}
+                     <div className="p-4 bg-gradient-to-br from-gray-900 to-black aspect-video flex items-center justify-center relative overflow-hidden">
+                        {/* Mock File Upload UI */}
+                        <div className="w-full h-full bg-background rounded-lg border border-border overflow-hidden flex flex-col">
+                           {/* Mock Header */}
+                           <div className="h-8 bg-surface border-b border-border flex items-center px-3 gap-2">
+                              <div className="w-4 h-4 bg-white rounded-sm flex items-center justify-center">
+                                 <div className="w-1.5 h-1.5 bg-black rounded-full" />
+                              </div>
+                              <span className="text-[8px] font-bold tracking-widest text-textMain">GHOSTNOTE</span>
+                           </div>
+                           {/* Mock Content - File Upload Active */}
+                           <div className="flex-1 flex">
+                              {/* Left Panel */}
+                              <div className="flex-1 p-3 space-y-2">
+                                 {/* Tone Preset */}
+                                 <div className="space-y-1">
+                                    <label className="text-[6px] text-textMuted uppercase tracking-wider">Tone Preset</label>
+                                    <div className="h-6 bg-surface border border-border rounded flex items-center px-2 opacity-40">
+                                       <span className="text-[8px] text-textMain">Custom / Other</span>
+                                    </div>
+                                 </div>
+                                 {/* Tabs - File Active */}
+                                 <div className="flex gap-1">
+                                    <div className="px-2 py-1 bg-surface text-[6px] text-textMuted rounded">PASTE</div>
+                                    <div className="px-2 py-1 bg-background border border-border/50 rounded text-[6px] text-textMain">FILE</div>
+                                    <div className="px-2 py-1 bg-surface text-[6px] text-textMuted rounded flex items-center gap-0.5">
+                                       <span className="w-1.5 h-1.5 border border-textMuted/30 rounded-full"></span>
+                                       BULK
+                                    </div>
+                                 </div>
+                                 {/* File Upload Area */}
+                                 <div className="h-20 border-2 border-dashed border-accent/50 bg-accent/5 rounded flex flex-col items-center justify-center gap-1">
+                                    <div className="w-6 h-6 flex items-center justify-center">
+                                       <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                       </svg>
+                                    </div>
+                                    <p className="text-[7px] text-textMain font-bold">DROP FILE OR CLICK</p>
+                                    <div className="flex gap-1">
+                                       <span className="px-1 py-0.5 bg-surface border border-border rounded text-[5px] text-textMuted">PDF</span>
+                                       <span className="px-1 py-0.5 bg-surface border border-border rounded text-[5px] text-textMuted">TXT</span>
+                                       <span className="px-1 py-0.5 bg-surface border border-border rounded text-[5px] text-textMuted">CSV</span>
+                                    </div>
+                                 </div>
+                                 {/* File Preview */}
+                                 <div className="h-10 bg-background border border-border rounded flex items-center px-2 gap-2">
+                                    <div className="w-6 h-6 bg-surface rounded flex items-center justify-center">
+                                       <svg className="w-3 h-3 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                       </svg>
+                                    </div>
+                                    <div className="flex-1">
+                                       <p className="text-[7px] text-textMain truncate">brand_voice_guide.pdf</p>
+                                       <p className="text-[5px] text-textMuted">PDF • BRAND DNA</p>
+                                    </div>
+                                    <span className="text-[6px] text-accent">✓</span>
+                                 </div>
+                              </div>
+                              {/* Right Panel */}
+                              <div className="w-1/3 bg-surface border-l border-border p-2">
+                                 <div className="text-[6px] text-textMuted uppercase tracking-wider mb-2">Output</div>
+                                 <div className="h-20 border border-dashed border-border/30 rounded flex items-center justify-center">
+                                    <span className="text-[6px] text-textMuted/30">Awaiting Input</span>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                  <div className="mt-4 text-center">
+                     <h3 className="text-sm font-bold text-white mb-1">Step 2: Upload Brand DNA</h3>
+                     <p className="text-xs text-textMuted">Drop PDFs, TXT, or CSV files to train the AI on your style</p>
+                  </div>
+               </div>
+
+               {/* Screenshot 3: Content Generation */}
+               <div className="reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out delay-300">
+                  <div className="bg-surface border border-border rounded-xl overflow-hidden shadow-2xl">
+                     {/* Browser Chrome */}
+                     <div className="bg-background border-b border-border px-4 py-3 flex items-center gap-2">
+                        <div className="flex gap-1.5">
+                           <div className="w-3 h-3 rounded-full bg-red-500/50" />
+                           <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
+                           <div className="w-3 h-3 rounded-full bg-green-500/50" />
+                        </div>
+                        <div className="flex-1 bg-surface rounded text-xs text-textMuted px-3 py-1 mx-4">ghostnote.app/generate</div>
+                     </div>
+                     {/* UI Screenshot Content */}
+                     <div className="p-4 bg-gradient-to-br from-gray-900 to-black aspect-video flex items-center justify-center relative overflow-hidden">
+                        {/* Mock Generated Content UI */}
+                        <div className="w-full h-full bg-background rounded-lg border border-border overflow-hidden flex flex-col">
+                           {/* Mock Header */}
+                           <div className="h-8 bg-surface border-b border-border flex items-center px-3 gap-2">
+                              <div className="w-4 h-4 bg-white rounded-sm flex items-center justify-center">
+                                 <div className="w-1.5 h-1.5 bg-black rounded-full" />
+                              </div>
+                              <span className="text-[8px] font-bold tracking-widest text-textMain">GHOSTNOTE</span>
+                           </div>
+                           {/* Mock Content - With Generated Output */}
+                           <div className="flex-1 flex">
+                              {/* Left Panel - Draft Input */}
+                              <div className="flex-1 p-3 space-y-2">
+                                 {/* Tone Preset */}
+                                 <div className="space-y-1">
+                                    <label className="text-[6px] text-textMuted uppercase tracking-wider">Tone Preset</label>
+                                    <div className="h-6 bg-surface border border-border rounded flex items-center px-2">
+                                       <span className="text-[8px] text-textMain">Casual Tech Bro</span>
+                                    </div>
+                                 </div>
+                                 {/* Draft Input */}
+                                 <div className="space-y-1">
+                                    <label className="text-[6px] text-textMuted uppercase tracking-wider">Raw Draft</label>
+                                    <div className="h-14 bg-surface border border-border rounded p-2">
+                                       <p className="text-[6px] text-textMain font-mono leading-tight">We are pleased to announce the launch of our new product feature...</p>
+                                    </div>
+                                 </div>
+                                 {/* Generate Button */}
+                                 <div className="h-7 bg-accent rounded flex items-center justify-center gap-1">
+                                    <span className="text-[7px] font-bold text-black">RUN TRANSFORMATION</span>
+                                    <svg className="w-3 h-3 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                 </div>
+                              </div>
+                              {/* Right Panel - Generated Output */}
+                              <div className="w-1/2 bg-surface border-l border-border p-2 flex flex-col">
+                                 <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[6px] text-textMuted uppercase tracking-wider">Output</span>
+                                    <div className="flex gap-1">
+                                       <span className="px-1.5 py-0.5 bg-background border border-border rounded text-[5px] text-textMuted">EXPORT</span>
+                                       <span className="px-1.5 py-0.5 bg-background border border-border rounded text-[5px] text-textMuted">COPY</span>
+                                    </div>
+                                 </div>
+                                 {/* Generated Content */}
+                                 <div className="flex-1 bg-background border border-border rounded p-2 overflow-hidden">
+                                    <p className="text-[6px] text-textMain font-mono leading-relaxed">
+                                       Yo, we just shipped this feature and it's absolutely insane. The latency is basically zero, and honestly? The DX is chef's kiss 🔥
+                                    </p>
+                                    <p className="text-[6px] text-textMain font-mono leading-relaxed mt-1">
+                                       We're going full PLG mode anyway, so just ship it and iterate. LFG! 🚀
+                                    </p>
+                                 </div>
+                                 {/* Export Options */}
+                                 <div className="mt-2 flex gap-1">
+                                    <span className="px-1.5 py-0.5 bg-surface border border-border rounded text-[5px] text-textMuted">.txt</span>
+                                    <span className="px-1.5 py-0.5 bg-surface border border-border rounded text-[5px] text-textMuted">.md</span>
+                                    <span className="px-1.5 py-0.5 bg-surface border border-border rounded text-[5x] text-textMuted">.pdf</span>
+                                    <span className="px-1.5 py-0.5 bg-surface border border-border rounded text-[5px] text-textMuted">.json</span>
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+                  <div className="mt-4 text-center">
+                     <h3 className="text-sm font-bold text-white mb-1">Step 3: Generate & Export</h3>
+                     <p className="text-xs text-textMuted">Get rewritten content and export as TXT, MD, PDF, or JSON</p>
+                  </div>
+               </div>
+            </div>
+
+            {/* CTA below screenshots */}
+            <div className="mt-12 text-center reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out">
+               <button 
+                  onClick={() => !isLoading && onEnterApp('clone')}
+                  disabled={isLoading}
+                  className="bg-accent text-black px-8 py-4 rounded-md font-bold text-sm tracking-wide uppercase hover:bg-white hover:shadow-[0_0_20px_rgba(217,249,157,0.5)] transition-all inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+               >
+                  Start Free Trial <ArrowRight size={18} />
+               </button>
+            </div>
+         </div>
+      </section>
+
       {/* Pricing */}
       <section className="py-24 bg-surface/20 border-y border-border/50">
          <div className="max-w-7xl mx-auto px-6">
