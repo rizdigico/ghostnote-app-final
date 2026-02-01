@@ -29,8 +29,12 @@ const AppContent: React.FC = () => {
       setCurrentView('login');
       // Clear the query param
       const plan = params.get('plan');
+      const billing = params.get('billing');
       if (plan) {
         localStorage.setItem('pendingPlan', plan);
+        if (billing) {
+          localStorage.setItem('pendingBilling', billing);
+        }
         window.history.replaceState({}, '', '/?showLogin=true');
       } else {
         window.history.replaceState({}, '', '/');
@@ -130,3 +134,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+
