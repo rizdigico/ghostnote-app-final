@@ -1,4 +1,4 @@
-.export interface VoicePreset {
+export interface VoicePreset {
   id: string;
   name: string;
   referenceText: string;
