@@ -1,7 +1,11 @@
-
 export const config = {
   runtime: 'edge',
 };
+
+// --- RAG IMPORTS ---
+import { chunkText, shouldUseRAG, TextChunk } from './lib/chunker';
+import { generateEmbedding, generateEmbeddingsForChunks } from './lib/embeddings';
+import { storeEmbeddings, findSimilarDocuments, hasSession, EmbeddingDocument } from './lib/vectorStore';
 
 // --- SECURITY: RATE LIMITING ---
 // Simple in-memory rate limiter (in production, use Redis)
@@ -40,6 +44,80 @@ function sanitizeFileName(fileName: string): string {
   const sanitized = fileName.replace(dangerous, '_');
   // Limit length
   return sanitized.slice(0, 255);
+}
+
+// --- RAG: Process file content and retrieve relevant chunks ---
+async function processRAG(
+  fileContent: string,
+  draft: string,
+  sessionId: string,
+  apiKey: string,
+  controller: ReadableStreamDefaultController,
+  encoder: TextEncoder
+): Promise<string> {
+  try {
+    controller.enqueue(encoder.encode(`Analyzing Brand DNA with RAG...\n`));
+    
+    // Step 1: Check if we already have embeddings for this session
+    let relevantChunks: string;
+    
+    if (hasSession(sessionId)) {
+      // Reuse existing embeddings
+      controller.enqueue(encoder.encode(`Using cached embeddings...\n`));
+      const draftEmbedding = await generateEmbedding(draft, apiKey);
+      const similarDocs = findSimilarDocuments(sessionId, draftEmbedding, 5);
+      relevantChunks = similarDocs.map(d => d.document.text).join('\n\n---\n\n');
+    } else {
+      // Step 2: Chunk the file content
+      controller.enqueue(encoder.encode(`Chunking document...\n`));
+      const chunks = chunkText(fileContent, 500, 100);
+      
+      if (chunks.length === 0) {
+        return fileContent; // Fallback to full content
+      }
+      
+      controller.enqueue(encoder.encode(`Generating embeddings for ${chunks.length} chunks...\n`));
+      
+      // Step 3: Generate embeddings for chunks
+      const chunkEmbeddings = await generateEmbeddingsForChunks(
+        chunks.map(c => ({ id: c.id, text: c.text })),
+        apiKey,
+        (completed, total) => {
+          controller.enqueue(encoder.encode(`Embedding progress: ${completed}/${total}...\n`));
+        }
+      );
+      
+      // Step 4: Store in vector store
+      const documents: EmbeddingDocument[] = chunkEmbeddings.map(ce => {
+        const chunk = chunks.find(c => c.id === ce.id)!;
+        return {
+          id: `chunk_${ce.id}`,
+          text: chunk.text,
+          embedding: ce.embedding,
+          metadata: { startIndex: chunk.startIndex, endIndex: chunk.endIndex }
+        };
+      });
+      
+      storeEmbeddings(sessionId, documents);
+      
+      // Step 5: Generate embedding for the draft
+      controller.enqueue(encoder.encode(`Finding relevant chunks...\n`));
+      const draftEmbedding = await generateEmbedding(draft, apiKey);
+      
+      // Step 6: Find similar chunks
+      const similarDocs = findSimilarDocuments(sessionId, draftEmbedding, 5);
+      relevantChunks = similarDocs.map(d => d.document.text).join('\n\n---\n\n');
+    }
+    
+    controller.enqueue(encoder.encode(`Retrieved relevant context. Generating rewrite...\n\n`));
+    
+    return relevantChunks;
+  } catch (error: any) {
+    console.error('[RAG Error]', error);
+    controller.enqueue(encoder.encode(`[RAG Warning: ${error.message}. Using full text fallback.]\n\n`));
+    // Fallback to full content on error
+    return fileContent.slice(0, 5000);
+  }
 }
 
 export default async function handler(req: Request) {
@@ -91,7 +169,8 @@ export default async function handler(req: Request) {
           return;
         }
         
-        const { draft, referenceText, intensity } = body;
+        // Support both old and new payload formats
+        const { draft, referenceText, fileContent, sessionId, intensity } = body;
         
         // 3. Validate and sanitize input
         if (!draft || typeof draft !== 'string') {
@@ -100,7 +179,11 @@ export default async function handler(req: Request) {
           return;
         }
         
-        if (!referenceText || typeof referenceText !== 'string') {
+        // Check for reference (either text or file)
+        const hasReferenceText = referenceText && typeof referenceText === 'string' && referenceText.trim().length > 0;
+        const hasFileContent = fileContent && typeof fileContent === 'string' && fileContent.trim().length > 0;
+        
+        if (!hasReferenceText && !hasFileContent) {
           controller.enqueue(encoder.encode("\n[Error: Reference text is required. Please provide a style reference.]"));
           controller.close();
           return;
@@ -108,15 +191,29 @@ export default async function handler(req: Request) {
         
         // Sanitize inputs to prevent injection attacks
         const sanitizedDraft = sanitizeInput(draft, 5000);
-        const sanitizedReference = sanitizeInput(referenceText, 5000);
         const validIntensity = Math.min(100, Math.max(0, Number(intensity) || 50));
         
-        // 4. Define the Model - Meta: Llama 3.3 70B Instruct from OpenRouter
+        // 4. Determine reference style to use (RAG or full text)
+        let referenceStyle: string;
+        
+        if (hasFileContent && shouldUseRAG(fileContent)) {
+          // Use RAG for large files
+          const effectiveSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          referenceStyle = await processRAG(fileContent, sanitizedDraft, effectiveSessionId, apiKey, controller, encoder);
+        } else if (hasFileContent) {
+          // Small file - use full content directly
+          referenceStyle = sanitizeInput(fileContent, 5000);
+        } else {
+          // Text reference - use as is
+          referenceStyle = sanitizeInput(referenceText, 5000);
+        }
+        
+        // 5. Define the Model - Meta: Llama 3.3 70B Instruct from OpenRouter
         const MODEL_ID = "meta-llama/llama-3.3-70b-instruct";
 
         controller.enqueue(encoder.encode(`Initiating GhostNote...\n\n`));
 
-        // 5. Send Request to OpenRouter
+        // 6. Send Request to OpenRouter
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -140,7 +237,7 @@ INTENSITY SETTING: ${validIntensity}%
 
 Rewrite the user's draft according to this intensity level. Return ONLY the rewritten text, no explanations.
 
-Reference Style:\n${sanitizedReference}`
+Reference Style:\n${referenceStyle}`
               },
               {
                 role: "user",
@@ -170,7 +267,7 @@ Reference Style:\n${sanitizedReference}`
 
         if (!response.body) throw new Error("No response body");
 
-        // 5. Read Stream
+        // 7. Read Stream
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';

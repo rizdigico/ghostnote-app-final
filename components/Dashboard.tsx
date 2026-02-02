@@ -453,14 +453,39 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       }
 
       // SINGLE PROCESSING PATH - Use Streaming API
-      const textPayload = activeTab === 'text' ? referenceText : null;
-
       const currentIntensity = userPlan !== 'echo' ? Number(intensity) || 50 : 50;
 
-      // Prepare request payload (only sending what's needed by the API)
-      const requestPayload = {
+      // Prepare request payload with RAG support
+      // For file uploads, we decode and pass the file content for RAG processing
+      let fileContentPayload: string | null = null;
+      let sessionId: string | null = null;
+      
+      if (activeTab === 'file' && referenceFile) {
+        try {
+          // Decode base64 file content
+          const decodedContent = atob(referenceFile.data);
+          fileContentPayload = decodedContent;
+          // Generate a session ID for RAG vector store
+          sessionId = `rag_${user?.id || 'anon'}_${Date.now()}`;
+        } catch (e) {
+          console.error("Failed to decode file content:", e);
+          setErrorMessage("Failed to process file content.");
+          setStatus(RewriteStatus.ERROR);
+          return;
+        }
+      }
+      
+      const requestPayload: {
+        draft: string;
+        referenceText: string | null;
+        fileContent: string | null;
+        sessionId: string | null;
+        intensity: number;
+      } = {
         draft: draftText,
-        referenceText: textPayload,
+        referenceText: activeTab === 'text' ? referenceText : null,
+        fileContent: fileContentPayload,
+        sessionId: sessionId,
         intensity: currentIntensity,
       };
 
