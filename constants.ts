@@ -1,4 +1,15 @@
-import { VoicePreset } from './types';
+import { VoicePreset, PRESET_LIMITS, UserPlan } from './types';
+
+// Helper function to check if user can add more presets
+export function canAddPreset(plan: UserPlan, currentPresetCount: number): boolean {
+  const limit = PRESET_LIMITS[plan];
+  if (limit === -1) return true; // Unlimited
+  return currentPresetCount < limit;
+}
+
+export function getPresetLimit(plan: UserPlan): number {
+  return PRESET_LIMITS[plan];
+}
 
 export const VOICE_PRESETS: VoicePreset[] = [
   {

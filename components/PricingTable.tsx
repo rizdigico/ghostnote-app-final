@@ -105,6 +105,10 @@ export default function PricingTable() {
             </div>
             <div className="flex items-start gap-2 text-sm text-textMain/90">
               <Check size={16} className="text-accent mt-0.5 shrink-0" />
+              <span>10 Custom Voice Presets</span>
+            </div>
+            <div className="flex items-start gap-2 text-sm text-textMain/90">
+              <Check size={16} className="text-accent mt-0.5 shrink-0" />
               <span>Brand DNA File Upload</span>
             </div>
             <div className="flex items-start gap-2 text-sm text-textMain/90">
@@ -151,6 +155,10 @@ export default function PricingTable() {
             <div className="flex items-start gap-2 text-sm text-textMain/90">
               <Check size={16} className="text-purple-500 mt-0.5 shrink-0" />
               <span>Everything in Clone</span>
+            </div>
+            <div className="flex items-start gap-2 text-sm text-textMain/90">
+              <Check size={16} className="text-purple-500 mt-0.5 shrink-0" />
+              <span>Unlimited Custom Voice Presets</span>
             </div>
             <div className="flex items-start gap-2 text-sm text-textMain/90">
               <Check size={16} className="text-purple-500 mt-0.5 shrink-0" />

@@ -88,7 +88,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       price: '$0',
       period: 'Forever',
       icon: <Ghost className="w-6 h-6" />,
-      features: ['5 Credits / Day', 'Text Input Only', 'Standard Speed'],
+      features: ['5 Credits / Day', '2 Custom Voice Presets', 'Text Input Only', 'Standard Speed'],
       disabled: ['File Upload (Brand DNA)', 'Tone Intensity Slider', 'Bulk CSV Processing'],
       color: 'border-border',
       btnColor: 'bg-surface hover:bg-border'
@@ -100,7 +100,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       period: billingCycle === 'monthly' ? '/ month' : '/ year',
       popular: true,
       icon: <Zap className="w-6 h-6 text-black" />,
-      features: ['Unlimited Credits', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Priority Generation'],
+      features: ['Unlimited Credits', '10 Custom Voice Presets', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Priority Generation'],
       disabled: ['Bulk CSV Processing'],
       color: 'border-accent shadow-[0_0_30px_-10px_rgba(217,249,157,0.3)]',
       btnColor: 'bg-accent text-black hover:bg-white'
@@ -111,7 +111,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       price: billingCycle === 'monthly' ? '$99' : '$832',
       period: billingCycle === 'monthly' ? '/ month' : '/ year',
       icon: <Crown className="w-6 h-6" />,
-      features: ['Unlimited Credits', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Bulk CSV Processing', 'API Access'],
+      features: ['Unlimited Credits', 'Unlimited Custom Voice Presets', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Bulk CSV Processing', 'API Access'],
       disabled: [],
       color: 'border-purple-500/50 shadow-[0_0_30px_-10px_rgba(168,85,247,0.2)]',
       btnColor: 'bg-purple-600 text-white hover:bg-purple-500'

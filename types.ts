@@ -8,6 +8,13 @@ export interface VoicePreset {
 
 export type UserPlan = 'echo' | 'clone' | 'syndicate';
 
+// Preset limits per plan
+export const PRESET_LIMITS: Record<UserPlan, number> = {
+  echo: 2,
+  clone: 10,
+  syndicate: -1, // -1 means unlimited
+};
+
 export interface User {
   id: string;
   email: string;
