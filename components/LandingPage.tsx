@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Bot, Shuffle, Zap, Check, X, Ghost, Crown, Instagram, Plus, Minus } from 'lucide-react';
-import { UserPlan } from '../types';
+import { ArrowRight, Bot, Shuffle, Zap, Check, X, Ghost, Crown, Instagram, Plus, Minus, Sparkles } from 'lucide-react';
+import { UserPlan, RewriteStatus } from '../types';
+import { VOICE_PRESETS } from '../constants';
 
 interface LandingPageProps {
   onEnterApp: (plan?: UserPlan) => void;
@@ -39,9 +40,78 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
 
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+  
+  // Try It Live State
+  const [selectedPreset, setSelectedPreset] = useState(VOICE_PRESETS[0]);
+  const [sampleDraft, setSampleDraft] = useState("We are pleased to announce the launch of our new product feature that will revolutionize the way you work.");
+  const [sampleResult, setSampleResult] = useState("");
+  const [sampleStatus, setSampleStatus] = useState<RewriteStatus>(RewriteStatus.IDLE);
+  const [sampleIntensity, setSampleIntensity] = useState(70);
 
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
+  };
+
+  // Handle Try It Live generation
+  const [rateLimitError, setRateLimitError] = useState<string | null>(null);
+  
+  const handleSampleGenerate = async () => {
+    if (!sampleDraft.trim() || sampleStatus === RewriteStatus.LOADING) return;
+    
+    setSampleStatus(RewriteStatus.LOADING);
+    setSampleResult('');
+    setRateLimitError(null);
+    
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          draft: sampleDraft,
+          referenceText: selectedPreset.referenceText,
+          intensity: sampleIntensity,
+        }),
+      });
+      
+      // Handle rate limit (429) with upgrade CTA
+      if (response.status === 429) {
+        const data = await response.json().catch(() => ({}));
+        setRateLimitError(data.message || "You've reached your free trial limit.");
+        setSampleStatus(RewriteStatus.ERROR);
+        return;
+      }
+      
+      if (!response.ok) throw new Error('Generation failed');
+      if (!response.body) throw new Error('No response body');
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let result = '';
+      
+      // Check if response is JSON error or text stream
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('application/json')) {
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.message || data.error);
+        }
+      }
+      
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          result += decoder.decode(value, { stream: true });
+          setSampleResult(result);
+        }
+      }
+      
+      setSampleStatus(RewriteStatus.SUCCESS);
+    } catch (error) {
+      setSampleStatus(RewriteStatus.ERROR);
+      setSampleResult('Oops! Something went wrong. Please try again.');
+    }
   };
 
   const faqs = [
@@ -181,8 +251,140 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
          </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-32 px-6">
+     {/* Try It Live */}
+     <section className="py-24 px-6 bg-surface/10 border-y border-border/50">
+       <div className="max-w-4xl mx-auto">
+         <div className="text-center mb-12 reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out">
+           <div className="inline-flex items-center gap-2 px-3 py-1 mb-4 border border-accent/20 rounded-full bg-accent/5">
+             <Sparkles size={12} className="text-accent" />
+             <span className="text-accent text-[10px] font-mono tracking-widest uppercase">Try It Free</span>
+           </div>
+           <h2 className="text-3xl font-bold mb-4">See The Magic Happen</h2>
+           <p className="text-textMuted">Paste any text and watch it transform. No login required.</p>
+         </div>
+         
+         <div className="bg-background border border-border rounded-xl overflow-hidden shadow-2xl reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out">
+           {/* Header */}
+           <div className="bg-surface border-b border-border px-6 py-4 flex flex-wrap items-center gap-4">
+             <div className="flex items-center gap-2">
+               <span className="text-xs text-textMuted uppercase tracking-wider">Voice:</span>
+               <select
+                 value={selectedPreset.id}
+                 onChange={(e) => {
+                   const preset = VOICE_PRESETS.find(p => p.id === e.target.value);
+                   if (preset) setSelectedPreset(preset);
+                 }}
+                 className="bg-background border border-border rounded px-3 py-1.5 text-sm text-textMain focus:border-accent focus:outline-none"
+               >
+                 {VOICE_PRESETS.filter(p => p.id !== 'custom').map(preset => (
+                   <option key={preset.id} value={preset.id}>{preset.name}</option>
+                 ))}
+               </select>
+             </div>
+             
+             <div className="flex items-center gap-2 flex-1">
+               <span className="text-xs text-textMuted uppercase tracking-wider">Intensity:</span>
+               <input
+                 type="range"
+                 min="1"
+                 max="100"
+                 value={sampleIntensity}
+                 onChange={(e) => setSampleIntensity(parseInt(e.target.value))}
+                 className="flex-1 max-w-[120px] h-1 bg-surface rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-sm"
+               />
+               <span className="text-xs font-mono text-accent w-8">{sampleIntensity}%</span>
+             </div>
+           </div>
+           
+           {/* Content */}
+           <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+             {/* Input */}
+             <div className="p-6">
+               <label className="text-xs text-textMuted uppercase tracking-wider mb-2 block">Your Text</label>
+               <textarea
+                 value={sampleDraft}
+                 onChange={(e) => setSampleDraft(e.target.value)}
+                 placeholder="Paste your text here..."
+                 className="w-full h-40 bg-surface border border-border rounded-md p-4 text-textMain text-sm leading-relaxed placeholder-textMuted/30 focus:border-accent focus:outline-none transition-colors resize-none"
+                 maxLength={500}
+               />
+               <div className="flex justify-between items-center mt-2">
+                 <span className="text-[10px] text-textMuted">{sampleDraft.length}/500</span>
+                 <button
+                   onClick={handleSampleGenerate}
+                   disabled={sampleStatus === RewriteStatus.LOADING || !sampleDraft.trim()}
+                   className="bg-accent text-black px-4 py-2 rounded-md text-sm font-bold hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                 >
+                   {sampleStatus === RewriteStatus.LOADING ? (
+                     <>
+                       <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                       Transforming...
+                     </>
+                   ) : (
+                     <>
+                       <Sparkles size={14} />
+                       Transform
+                     </>
+                   )}
+                 </button>
+               </div>
+             </div>
+             
+             {/* Output */}
+             <div className="p-6 bg-black/20">
+               <label className="text-xs text-textMuted uppercase tracking-wider mb-2 block">GhostNote Result</label>
+               <div className="w-full h-40 bg-surface border border-border rounded-md p-4 text-textMain text-sm leading-relaxed overflow-auto">
+                 {sampleResult ? (
+                   <p className="whitespace-pre-wrap">{sampleResult}</p>
+                 ) : (
+                   <p className="text-textMuted/50 italic">
+                     {sampleStatus === RewriteStatus.IDLE
+                       ? "Your transformed text will appear here..."
+                       : sampleStatus === RewriteStatus.ERROR
+                         ? "Something went wrong. Try again!"
+                         : ""
+                     }
+                   </p>
+                 )}
+               </div>
+               <div className="flex justify-between items-center mt-2">
+                 <span className="text-[10px] text-textMuted">Powered by Llama 3.3</span>
+                 {sampleResult && (
+                   <button
+                     onClick={() => {
+                       navigator.clipboard.writeText(sampleResult);
+                       const btn = document.activeElement as HTMLButtonElement;
+                       if (btn) {
+                         const original = btn.textContent;
+                         btn.textContent = 'Copied!';
+                         setTimeout(() => btn.textContent = original, 1500);
+                       }
+                     }}
+                     className="text-[10px] text-accent hover:text-white transition-colors"
+                   >
+                     Copy Result
+                   </button>
+                 )}
+               </div>
+             </div>
+           </div>
+           
+           {/* CTA */}
+           <div className="bg-surface border-t border-border px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+             <p className="text-sm text-textMuted">Want to save your own voices and unlock unlimited rewrites?</p>
+             <button
+               onClick={() => onEnterApp('clone')}
+               className="bg-white text-black px-6 py-2 rounded-md text-sm font-bold hover:bg-accent transition-colors whitespace-nowrap"
+             >
+               Start Free Trial
+             </button>
+           </div>
+         </div>
+       </div>
+     </section>
+
+     {/* How It Works */}
+     <section className="py-32 px-6">
          <div className="max-w-4xl mx-auto">
             <div className="text-center mb-16 reveal-on-scroll opacity-0 translate-y-10 transition-all duration-700 ease-out">
                <h2 className="text-3xl font-bold mb-4">Workflow of the Future</h2>

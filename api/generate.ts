@@ -56,10 +56,19 @@ export default async function handler(req: Request) {
   
   // --- SECURITY: RATE LIMIT CHECK ---
   if (!checkRateLimit(ip)) {
-    return new Response('Rate limit exceeded. Please try again later.', { 
-      status: 429,
-      headers: { 'Retry-After': '60' }
-    });
+    return new Response(
+      JSON.stringify({
+        error: 'Rate limit exceeded.',
+        message: "You've reached your free trial limit. Sign up to continue!",
+        upgradeCTA: true
+      }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': '60'
+        }
+      }
+    );
   }
 
   const readable = new ReadableStream({
@@ -119,16 +128,26 @@ export default async function handler(req: Request) {
           body: JSON.stringify({
             model: MODEL_ID,
             messages: [
-              { 
-                role: "system", 
-                content: `You are a professional ghostwriter. Analyze the reference text to understand the writing style, tone, and voice. Then rewrite the user's draft to match that style. Intensity: ${validIntensity}%. Return ONLY the rewritten text, no explanations.\n\nReference Style:\n${sanitizedReference}` 
+              {
+                role: "system",
+                content: `You are a professional ghostwriter. Analyze the reference text to understand the writing style, tone, vocabulary, sentence structure, and voice.
+
+INTENSITY SETTING: ${validIntensity}%
+- At 0-20%: Be creative and loosely inspired by the reference. Use your own words while capturing the general vibe.
+- At 21-50%: Moderate adherence. Match the tone and some phrasing patterns but allow natural variation.
+- At 51-80%: Strong adherence. Closely follow the writing style, vocabulary choices, and sentence structures.
+- At 81-100%: Exact clone. Strictly mirror the reference style, using similar vocabulary, sentence length, punctuation patterns, and voice.
+
+Rewrite the user's draft according to this intensity level. Return ONLY the rewritten text, no explanations.
+
+Reference Style:\n${sanitizedReference}`
               },
-              { 
-                role: "user", 
-                content: `Rewrite this text in the style of the reference:\n\n${sanitizedDraft}` 
+              {
+                role: "user",
+                content: `Rewrite this text at ${validIntensity}% intensity:\n\n${sanitizedDraft}`
               }
             ],
-            stream: true, 
+            stream: true,
             max_tokens: 2000, // Prevent excessive output
           }),
         });

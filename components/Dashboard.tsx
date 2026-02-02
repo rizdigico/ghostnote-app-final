@@ -972,16 +972,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                 {userPlan !== 'echo' && (
                   <div className="space-y-3 pt-2">
                     <div className="flex justify-between items-center">
-                      <label className="text-xs font-semibold text-textMuted uppercase tracking-widest pl-1">
-                        Mimicry Intensity
-                      </label>
+                      <div className="group relative">
+                        <label className="text-xs font-semibold text-textMuted uppercase tracking-widest pl-1 cursor-help">
+                          Mimicry Intensity
+                        </label>
+                        <div className="absolute bottom-full left-0 mb-2 w-64 px-3 py-2 bg-black border border-border text-white text-[11px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 leading-relaxed shadow-lg">
+                          Controls adherence to source syntax vs. creative freedom.
+                          <div className="mt-1 text-textMuted">Low% = More creative, loosely inspired.<br/>High% = Strictly follows your style patterns.</div>
+                        </div>
+                      </div>
                       <span className="text-xs font-mono text-accent">{intensity}%</span>
                     </div>
-                    <input 
-                      type="range" 
-                      min="1" 
-                      max="100" 
-                      value={intensity} 
+                    <input
+                      type="range"
+                      min="1"
+                      max="100"
+                      value={intensity}
                       onChange={(e) => setIntensity(parseInt(e.target.value))}
                       className="w-full h-1 bg-surface rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:rounded-sm"
                     />
