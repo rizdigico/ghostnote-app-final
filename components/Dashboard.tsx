@@ -11,6 +11,7 @@ import UserMenu from './UserMenu';
 import { dbService } from '../dbService';
 import { useAuth } from '../AuthContext';
 import { RewriteStatus, VoicePreset, VoicePresetVisibility, UserPlan } from '../types';
+import { canAddPreset, getPresetLimit } from '../constants';
 import { jsPDF } from "jspdf";
 
 interface DashboardProps {
@@ -130,6 +131,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   const isBulkUnlocked = userPlan === 'syndicate';
   const hasCredits = userPlan !== 'echo' || dailyCredits > 0;
 
+  // Preset Limit Checks
+  const customPresetCount = presets.filter(p => p.isCustom === true).length;
+  const presetLimit = getPresetLimit(userPlan);
+  const canAddMorePresets = canAddPreset(userPlan, customPresetCount);
+
   // Handle Plan Upgrade
   const handleUpgrade = async (plan: UserPlan) => {
     await updatePlan(plan);
@@ -155,6 +161,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   
   // Handle Save Preset
   const handleSavePreset = async () => {
+    // Check preset limit before saving
+    if (!canAddMorePresets) {
+      setShowSavePresetModal(false);
+      setShowUpgradeModal(true);
+      return;
+    }
+    
     if (!newPresetName.trim() || !user) return;
     
     try {
@@ -695,6 +708,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
             <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-sm shadow-2xl">
                 <h3 className="text-lg font-bold text-textMain mb-2">Save Voice Preset</h3>
                 <p className="text-xs text-textMuted mb-4">Give your custom tone a name to save it for later.</p>
+                {presetLimit !== -1 && (
+                  <p className="text-xs text-textMuted mb-4">
+                    <span className={customPresetCount >= presetLimit ? 'text-red-400' : 'text-accent'}>
+                      {customPresetCount} / {presetLimit}
+                    </span> custom presets used
+                  </p>
+                )}
                 <input 
                     autoFocus
                     type="text" 
@@ -733,7 +753,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                     </button>
                     <button 
                         onClick={handleSavePreset}
-                        disabled={!newPresetName.trim()}
+                        disabled={!newPresetName.trim() || !canAddMorePresets}
                         className="px-4 py-2 bg-accent text-black rounded-md text-sm font-bold hover:bg-white disabled:opacity-50 transition-colors"
                     >
                         Save Preset
@@ -853,7 +873,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                    </div>
                    <button 
                       onClick={() => setShowSavePresetModal(true)}
-                      disabled={activeTab !== 'text' || !referenceText.trim()}
+                      disabled={activeTab !== 'text' || !referenceText.trim() || !canAddMorePresets}
                       className="h-[46px] mb-[1px] px-4 flex items-center justify-center gap-2 bg-surface border border-border rounded-md text-sm font-bold text-textMuted hover:text-textMain hover:bg-border transition-colors disabled:opacity-30 disabled:cursor-not-allowed group relative"
                    >
                       <Save size={16} />
