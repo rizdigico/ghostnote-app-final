@@ -89,7 +89,7 @@ const ensureUserDocument = async (firebaseUser: any) => {
       email: firebaseUser.email || '',
       name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
       plan: 'echo',
-      credits: 5,
+      credits: 10,
       joinedDate: new Date().toISOString(),
       instagramConnected: false,
       // Generate secure API key

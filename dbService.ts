@@ -34,7 +34,7 @@ export const dbService = {
       email,
       name: email.split('@')[0],
       plan: 'echo',
-      credits: 5,
+      credits: 10,
       joinedDate: new Date().toISOString(),
       instagramConnected: false,
     };

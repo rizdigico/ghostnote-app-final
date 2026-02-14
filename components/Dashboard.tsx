@@ -60,6 +60,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   // App State
   const [presets, setPresets] = useState<VoicePreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string>('');
+  // Separate state for base voice in StyleMixer (should be a base voice, not system preset)
+  const [baseVoiceId, setBaseVoiceId] = useState<string>('');
   const [activeInjections, setActiveInjections] = useState<VoiceInjection[]>([]);
   const [activeTab, setActiveTab] = useState<'text' | 'file' | 'bulk' | 'url'>('text');
   
@@ -89,9 +91,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
             try {
               const voices = await dbService.getVoicePresets(user.id);
               setPresets(voices);
+              
               if (voices.length > 0 && !selectedPresetId) {
-                  setSelectedPresetId(voices[0].id);
-                  setReferenceText(voices[0].referenceText);
+                // Find first base voice (not system preset) to use as default
+                const baseVoice = voices.find(v => !v.is_system_preset);
+                const defaultVoice = baseVoice || voices[0];
+                
+                setSelectedPresetId(defaultVoice.id);
+                setBaseVoiceId(defaultVoice.id);
+                setReferenceText(defaultVoice.referenceText);
               }
             } catch (err) {
               console.error("Failed to load presets", err);
@@ -168,9 +176,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     }
   };
 
-  // Handle Style Mixer Changes
+  // Handle Style Mixer Changes - Base Voice (distinct from selectedPresetId)
+  const handleBaseVoiceChange = (voiceId: string) => {
+    setBaseVoiceId(voiceId);
+    const preset = presets.find(p => p.id === voiceId);
+    if (preset) {
+      setReferenceText(preset.referenceText);
+    }
+  };
+
+  // Legacy handler - kept for backward compatibility with other components
   const handlePrimaryVoiceChange = (voiceId: string) => {
-    setSelectedPresetId(voiceId);
+    setBaseVoiceId(voiceId);
     const preset = presets.find(p => p.id === voiceId);
     if (preset) {
       setReferenceText(preset.referenceText);
@@ -891,7 +908,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
             <div className="hidden md:flex flex-col items-end">
                <span className="text-[10px] font-bold text-textMuted uppercase tracking-wider">Daily Credits</span>
                <span className={`text-sm font-mono font-bold ${dailyCredits === 0 ? 'text-red-400' : 'text-accent'}`}>
-                 {dailyCredits} / 5
+                 {dailyCredits} / 10
                </span>
             </div>
           )}
@@ -932,10 +949,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                 {/* Style Mixer - Voice Mixing Interface */}
                 <StyleMixer
                   presets={presets}
-                  primaryVoiceId={selectedPresetId}
+                  primaryVoiceId={baseVoiceId}
                   injections={activeInjections}
                   intensity={intensity}
-                  onPrimaryVoiceChange={handlePrimaryVoiceChange}
+                  onPrimaryVoiceChange={handleBaseVoiceChange}
                   onInjectionsChange={handleInjectionsChange}
                   onIntensityChange={setIntensity}
                 />
