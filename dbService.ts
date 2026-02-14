@@ -1,5 +1,5 @@
 import { User, UserPlan, VoicePreset, Team, TeamMember, TeamRole, TeamSettings } from './types';
-import { VOICE_PRESETS } from './constants';
+import { VOICE_PRESETS, SYSTEM_PRESETS } from './constants';
 
 // --- MOCK DATABASE CONFIGURATION ---
 // When moving to Firebase/Supabase, replace these methods with real API calls.
@@ -136,7 +136,7 @@ export const dbService = {
   // --- VOICE PRESETS (PERSISTENCE) ---
 
   async getVoicePresets(userId: string): Promise<VoicePreset[]> {
-    // Return default presets + user saved presets
+    // Return default presets + user saved presets + system presets
     const stored = localStorage.getItem(STORAGE_KEY_CUSTOM_VOICES);
     let customVoices: VoicePreset[] = [];
     
@@ -151,7 +151,8 @@ export const dbService = {
     // Filter customs for this user (mocking RLS)
     const userVoices = customVoices.filter(v => v.ownerId === userId);
     
-    return [...VOICE_PRESETS, ...userVoices];
+    // Return: System presets (global) + Default presets + User's custom presets
+    return [...SYSTEM_PRESETS, ...VOICE_PRESETS, ...userVoices];
   },
 
   async saveVoicePreset(userId: string, name: string, referenceText: string): Promise<VoicePreset> {

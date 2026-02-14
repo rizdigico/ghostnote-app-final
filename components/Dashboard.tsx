@@ -10,9 +10,10 @@ import TeamSwitcher from './TeamSwitcher';
 import UserMenu from './UserMenu';
 import UrlImportCard from './UrlImportCard';
 import DnaPreviewModal from './DnaPreviewModal';
+import StyleMixer from './StyleMixer';
 import { dbService } from '../dbService';
 import { useAuth } from '../AuthContext';
-import { RewriteStatus, VoicePreset, VoicePresetVisibility, UserPlan } from '../types';
+import { RewriteStatus, VoicePreset, VoicePresetVisibility, UserPlan, VoiceInjection } from '../types';
 import { canAddPreset, getPresetLimit } from '../constants';
 import { jsPDF } from "jspdf";
 
@@ -59,6 +60,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   // App State
   const [presets, setPresets] = useState<VoicePreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string>('');
+  const [activeInjections, setActiveInjections] = useState<VoiceInjection[]>([]);
   const [activeTab, setActiveTab] = useState<'text' | 'file' | 'bulk' | 'url'>('text');
   
   const [referenceText, setReferenceText] = useState<string>("");
@@ -164,6 +166,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     if (preset) {
       setReferenceText(preset.referenceText);
     }
+  };
+
+  // Handle Style Mixer Changes
+  const handlePrimaryVoiceChange = (voiceId: string) => {
+    setSelectedPresetId(voiceId);
+    const preset = presets.find(p => p.id === voiceId);
+    if (preset) {
+      setReferenceText(preset.referenceText);
+    }
+  };
+
+  const handleInjectionsChange = (injections: VoiceInjection[]) => {
+    setActiveInjections(injections);
   };
   
   // Derived value for selected preset
@@ -513,12 +528,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
       
       const requestPayload: {
         draft: string;
+        primaryVoiceId?: string;
+        injections?: VoiceInjection[];
         referenceText: string | null;
         fileContent: string | null;
         sessionId: string | null;
         intensity: number;
       } = {
         draft: draftText,
+        primaryVoiceId: selectedPresetId,
+        injections: activeInjections.length > 0 ? activeInjections : undefined,
         referenceText: activeTab === 'text' ? referenceText : null,
         fileContent: fileContentPayload,
         sessionId: sessionId,
@@ -910,6 +929,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
               <div className="space-y-6">
                 
                 {/* Tone Preset */}
+                {/* Style Mixer - Voice Mixing Interface */}
+                <StyleMixer
+                  presets={presets}
+                  primaryVoiceId={selectedPresetId}
+                  injections={activeInjections}
+                  intensity={intensity}
+                  onPrimaryVoiceChange={handlePrimaryVoiceChange}
+                  onInjectionsChange={handleInjectionsChange}
+                  onIntensityChange={setIntensity}
+                />
                 <div className="flex items-end gap-2">
                    <div className="flex-1">
                        <Select 

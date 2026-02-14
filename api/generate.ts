@@ -170,7 +170,13 @@ export default async function handler(req: Request) {
         }
         
         // Support both old and new payload formats
-        const { draft, referenceText, fileContent, sessionId, intensity } = body;
+        // New format: { primaryVoiceId, injections: [{voiceId, intensity}] }
+        const { draft, referenceText, fileContent, sessionId, intensity, primaryVoiceId, injections } = body;
+        
+        // Style injection data (for future use - currently logged)
+        if (primaryVoiceId || injections) {
+          console.log('[StyleInjection] Received:', { primaryVoiceId, injections });
+        }
         
         // 3. Validate and sanitize input
         if (!draft || typeof draft !== 'string') {

@@ -1,10 +1,25 @@
 export type VoicePresetVisibility = 'private' | 'team';
 
+// Linguistic DNA extracted from voice profiles for efficient prompting
+export interface LinguisticDna {
+  tone: string[];
+  vocabulary: string[];
+  sentencePatterns: string[];
+  keywords: string[];
+}
+
+// Voice injection with intensity (for style mixing)
+export interface VoiceInjection {
+  voiceId: string;
+  intensity: number; // 0.1 to 1.0
+}
+
 export interface VoicePreset {
   id: string;
   name: string;
   referenceText: string;
   isCustom?: boolean; // If true, it belongs to a specific user
+  is_system_preset?: boolean; // System-level voice (global, read-only)
   ownerId?: string;
   createdBy?: string; // Original creator
   teamId?: string; // Team ownership
@@ -12,6 +27,7 @@ export interface VoicePreset {
   metadata?: {
     source?: 'manual' | 'url' | 'file';
     sourceUrl?: string;
+    linguisticDna?: LinguisticDna;
   };
 }
 
