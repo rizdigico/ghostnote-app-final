@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Copy, Check, ArrowRight, Command, Upload, FileText, X, Paperclip, Lock, Crown, Zap, Database, FileSpreadsheet, Trash2, Download, ChevronDown, FileType, FileCode, FileJson, Save, AlertCircle } from 'lucide-react';
+import { Copy, Check, ArrowRight, Command, Upload, FileText, X, Paperclip, Lock, Crown, Zap, Database, FileSpreadsheet, Trash2, Download, ChevronDown, FileType, FileCode, FileJson, Save, AlertCircle, Sparkles } from 'lucide-react';
 import Button from './Button';
 import TextArea from './TextArea';
 import Select from './Select';
@@ -8,6 +8,8 @@ import AccountModal from './AccountModal';
 import TeamSettingsModal from './TeamSettingsModal';
 import TeamSwitcher from './TeamSwitcher';
 import UserMenu from './UserMenu';
+import UrlImportCard from './UrlImportCard';
+import DnaPreviewModal from './DnaPreviewModal';
 import { dbService } from '../dbService';
 import { useAuth } from '../AuthContext';
 import { RewriteStatus, VoicePreset, VoicePresetVisibility, UserPlan } from '../types';
@@ -46,10 +48,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   const [showDeletePresetModal, setShowDeletePresetModal] = useState<boolean>(false);
   const [presetToDelete, setPresetToDelete] = useState<VoicePreset | null>(null);
 
+  // URL Import State
+  const [showDnaPreviewModal, setShowDnaPreviewModal] = useState<boolean>(false);
+  const [urlSourceData, setUrlSourceData] = useState<{
+    textContent: string;
+    sourceTitle: string;
+    sourceUrl: string;
+  } | null>(null);
+
   // App State
   const [presets, setPresets] = useState<VoicePreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'text' | 'file' | 'bulk'>('text');
+  const [activeTab, setActiveTab] = useState<'text' | 'file' | 'bulk' | 'url'>('text');
   
   const [referenceText, setReferenceText] = useState<string>("");
   const [referenceFile, setReferenceFile] = useState<{ name: string; data: string; mimeType: string } | null>(null);
@@ -224,7 +234,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   };
 
   // Handle Tab Switching with Gating
-  const handleTabChange = (tab: 'text' | 'file' | 'bulk') => {
+  const handleTabChange = (tab: 'text' | 'file' | 'bulk' | 'url') => {
     if (tab === 'file' && !isFileUnlocked) return;
     if (tab === 'bulk' && !isBulkUnlocked) return;
     setActiveTab(tab);
@@ -702,6 +712,46 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
         onClose={() => setShowTeamSettingsModal(false)}
       />
       
+      {/* DNA Preview Modal */}
+      <DnaPreviewModal
+        isOpen={showDnaPreviewModal}
+        onClose={() => setShowDnaPreviewModal(false)}
+        onSave={async (name, urlIntensity) => {
+          if (!user || !urlSourceData) return;
+          
+          try {
+            // Save the preset with URL metadata
+            const newPreset = await dbService.saveVoicePreset(
+              user.id, 
+              name, 
+              urlSourceData.textContent
+            );
+            
+            // Update with URL metadata
+            const presetWithMeta = {
+              ...newPreset,
+              metadata: {
+                source: 'url' as const,
+                sourceUrl: urlSourceData.sourceUrl
+              }
+            };
+            
+            setPresets(prev => [...prev, presetWithMeta]);
+            setSelectedPresetId(presetWithMeta.id);
+            setReferenceText(presetWithMeta.referenceText);
+            setShowDnaPreviewModal(false);
+            setUrlSourceData(null);
+            setShowUpgradeModal(false);
+          } catch (e: any) {
+            setErrorMessage(e.message || "Failed to save preset.");
+          }
+        }}
+        sourceTitle={urlSourceData?.sourceTitle || ''}
+        sourceUrl={urlSourceData?.sourceUrl || ''}
+        textContent={urlSourceData?.textContent || ''}
+        canSave={canAddMorePresets}
+      />
+      
       {/* Save Preset Modal */}
       {showSavePresetModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in-up">
@@ -940,6 +990,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                             </div>
                           )}
                         </div>
+                        
+                        <button 
+                          onClick={() => handleTabChange('url')}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold tracking-wider rounded transition-all ${activeTab === 'url' ? 'bg-background text-textMain shadow-sm border border-border/50' : 'text-textMuted hover:text-textMain'}`}
+                        >
+                          <Sparkles size={10} /> URL
+                        </button>
                       </div>
                    </div>
 
@@ -1046,6 +1103,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                               </div>
                            </div>
                         )}
+                     </div>
+                   )}
+
+                   {activeTab === 'url' && (
+                     <div className="w-full min-h-[160px]">
+                       <UrlImportCard 
+                         onScrapeSuccess={(data) => {
+                           setUrlSourceData(data);
+                           setReferenceText(data.textContent);
+                           setShowDnaPreviewModal(true);
+                         }}
+                       />
                      </div>
                    )}
 

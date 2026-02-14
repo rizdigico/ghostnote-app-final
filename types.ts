@@ -9,6 +9,10 @@ export interface VoicePreset {
   createdBy?: string; // Original creator
   teamId?: string; // Team ownership
   visibility?: VoicePresetVisibility; // 'private' or 'team' (optional for system presets)
+  metadata?: {
+    source?: 'manual' | 'url' | 'file';
+    sourceUrl?: string;
+  };
 }
 
 export type UserPlan = 'echo' | 'clone' | 'syndicate';
