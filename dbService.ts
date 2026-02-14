@@ -171,7 +171,9 @@ export const dbService = {
         name: cleanName,
         referenceText: cleanRef,
         isCustom: true,
-        ownerId: userId
+        ownerId: userId,
+        createdBy: userId,
+        visibility: 'private'
     };
 
     const stored = localStorage.getItem(STORAGE_KEY_CUSTOM_VOICES);
@@ -356,6 +358,138 @@ export const dbService = {
     const members = dbService.getTeamMembersFromStorage();
     const member = members.find(m => m.teamId === teamId && m.userId === userId);
     return member?.role || null;
+  },
+
+  // ============ TEAM-BASED VOICE PRESET OPERATIONS ============
+
+  /**
+   * Get voice presets accessible to user (owned by user OR user's team)
+   * Supports both legacy (ownerId) and new (teamId) ownership
+   */
+  async getVoicePresetsForUser(userId: string): Promise<VoicePreset[]> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    // Get user's team
+    const team = await dbService.getOrCreateUserTeam(userId);
+    
+    // Get all custom voices
+    const stored = localStorage.getItem(STORAGE_KEY_CUSTOM_VOICES);
+    let customVoices: VoicePreset[] = [];
+    
+    try {
+      customVoices = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(customVoices)) customVoices = [];
+    } catch (e) {
+      console.warn('Corrupted voice presets found, resetting.');
+      localStorage.removeItem(STORAGE_KEY_CUSTOM_VOICES);
+    }
+    
+    // Filter voices that are:
+    // 1. Owned by the user directly (legacy)
+    // 2. Owned by the user's team
+    const userVoices = customVoices.filter(v => 
+      v.ownerId === userId || v.teamId === team.id
+    );
+    
+    return [...VOICE_PRESETS, ...userVoices];
+  },
+
+  /**
+   * Save voice preset with team ownership
+   * Uses team ID if available, falls back to user ID for legacy
+   */
+  async saveVoicePresetWithTeam(
+    userId: string, 
+    name: string, 
+    referenceText: string,
+    teamId?: string
+  ): Promise<VoicePreset> {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    // Validation
+    const cleanName = name.trim();
+    const cleanRef = referenceText.trim();
+    
+    if (!cleanName) throw new Error('Preset name is required');
+    if (cleanName.length > 50) throw new Error('Preset name is too long (max 50 chars)');
+    if (!cleanRef) throw new Error('Reference text is required');
+    if (cleanRef.length > 20000) throw new Error('Reference text is too long');
+
+    // Get team ID (fallback to user's team if not provided)
+    let targetTeam = teamId ? await dbService.getTeam(teamId) : null;
+    if (!targetTeam) {
+      targetTeam = await dbService.getOrCreateUserTeam(userId);
+    }
+    
+    const newPreset: VoicePreset = {
+        id: 'custom_' + Math.random().toString(36).substr(2, 9),
+        name: cleanName,
+        referenceText: cleanRef,
+        isCustom: true,
+        ownerId: userId,
+        createdBy: userId,
+        teamId: targetTeam.id,
+        visibility: 'private' // Default to private, can be updated to 'team'
+    };
+
+    const stored = localStorage.getItem(STORAGE_KEY_CUSTOM_VOICES);
+    let customVoices: VoicePreset[] = [];
+    try {
+      customVoices = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(customVoices)) customVoices = [];
+    } catch (e) {
+      customVoices = [];
+    }
+    
+    customVoices.push(newPreset);
+    localStorage.setItem(STORAGE_KEY_CUSTOM_VOICES, JSON.stringify(customVoices));
+
+    return newPreset;
+  },
+
+  /**
+   * Delete voice preset with team permission check
+   * Allows deletion if user is owner OR has editor/admin role in team
+   */
+  async deleteVoicePresetWithTeam(
+    userId: string, 
+    presetId: string,
+    presetOwnerId: string,
+    presetTeamId?: string
+  ): Promise<boolean> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    // Check if user can delete:
+    // 1. User is the owner
+    // 2. User is admin/editor in the team that owns the preset
+    const isOwner = presetOwnerId === userId;
+    
+    let canDelete = isOwner;
+    
+    if (!isOwner && presetTeamId) {
+      const userRole = await dbService.getUserTeamRole(userId, presetTeamId);
+      canDelete = userRole === TeamRole.ADMIN || userRole === TeamRole.EDITOR;
+    }
+    
+    if (!canDelete) {
+      throw new Error('You do not have permission to delete this preset');
+    }
+
+    const stored = localStorage.getItem(STORAGE_KEY_CUSTOM_VOICES);
+    if (!stored) return false;
+
+    let customVoices: VoicePreset[] = [];
+    try {
+      customVoices = JSON.parse(stored);
+      if (!Array.isArray(customVoices)) customVoices = [];
+    } catch (e) {
+      customVoices = [];
+    }
+
+    const updatedVoices = customVoices.filter((v) => v.id !== presetId);
+    localStorage.setItem(STORAGE_KEY_CUSTOM_VOICES, JSON.stringify(updatedVoices));
+    
+    return true;
   },
 
   // ============ PRIVATE STORAGE HELPERS ============

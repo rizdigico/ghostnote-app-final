@@ -5,10 +5,12 @@ import TextArea from './TextArea';
 import Select from './Select';
 import PricingModal from './PricingModal';
 import AccountModal from './AccountModal';
-import UserMenu from './UserMenu'; // Fixed: Removed /Auth
+import TeamSettingsModal from './TeamSettingsModal';
+import TeamSwitcher from './TeamSwitcher';
+import UserMenu from './UserMenu';
 import { dbService } from '../dbService';
-import { useAuth } from '../AuthContext'; // Fixed: Removed /contexts
-import { RewriteStatus, VoicePreset, UserPlan } from '../types';
+import { useAuth } from '../AuthContext';
+import { RewriteStatus, VoicePreset, VoicePresetVisibility, UserPlan } from '../types';
 import { jsPDF } from "jspdf";
 
 interface DashboardProps {
@@ -17,12 +19,13 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
-  const { user, updatePlan, deductCredit } = useAuth();
+  const { user, team, updatePlan, deductCredit } = useAuth();
   
   // Local UI State
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
   const [upgradeBillingCycle, setUpgradeBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [showAccountModal, setShowAccountModal] = useState<boolean>(false);
+  const [showTeamSettingsModal, setShowTeamSettingsModal] = useState<boolean>(false);
   const [intensity, setIntensity] = useState<number>(50);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
@@ -36,6 +39,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
   // Save Preset State
   const [showSavePresetModal, setShowSavePresetModal] = useState<boolean>(false);
   const [newPresetName, setNewPresetName] = useState<string>("");
+  const [shareWithTeam, setShareWithTeam] = useState<boolean>(false);
   
   // Delete Preset State
   const [showDeletePresetModal, setShowDeletePresetModal] = useState<boolean>(false);
@@ -154,11 +158,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     if (!newPresetName.trim() || !user) return;
     
     try {
-        const newPreset = await dbService.saveVoicePreset(user.id, newPresetName, referenceText);
+        let newPreset;
+        if (shareWithTeam && team) {
+            // Save with team visibility
+            newPreset = await dbService.saveVoicePresetWithTeam(user.id, newPresetName, referenceText, team.id);
+            // Update visibility to team
+            newPreset = { ...newPreset, visibility: 'team' as VoicePresetVisibility };
+        } else {
+            newPreset = await dbService.saveVoicePreset(user.id, newPresetName, referenceText);
+        }
         setPresets(prev => [...prev, newPreset]);
         setSelectedPresetId(newPreset.id);
         setShowSavePresetModal(false);
         setNewPresetName("");
+        setShareWithTeam(false);
     } catch (e: any) {
         setErrorMessage(e.message || "Failed to save preset.");
     }
@@ -671,6 +684,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
         onClose={() => setShowAccountModal(false)}
       />
       
+      <TeamSettingsModal
+        isOpen={showTeamSettingsModal}
+        onClose={() => setShowTeamSettingsModal(false)}
+      />
+      
       {/* Save Preset Modal */}
       {showSavePresetModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in-up">
@@ -687,9 +705,28 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                     className="w-full bg-background border border-border rounded-md p-3 text-textMain mb-4 focus:border-accent focus:outline-none"
                     onKeyDown={(e) => e.key === 'Enter' && handleSavePreset()}
                 />
+                
+                {/* Share with Team Toggle */}
+                {team && (
+                    <label className="flex items-center gap-3 mb-4 cursor-pointer">
+                        <div className="relative">
+                            <input
+                                type="checkbox"
+                                checked={shareWithTeam}
+                                onChange={(e) => setShareWithTeam(e.target.checked)}
+                                className="sr-only"
+                            />
+                            <div className={`w-10 h-5 rounded-full transition-colors ${shareWithTeam ? 'bg-accent' : 'bg-border'}`}>
+                                <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform ${shareWithTeam ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                            </div>
+                        </div>
+                        <span className="text-sm text-textMuted">Share with team</span>
+                    </label>
+                )}
+                
                 <div className="flex gap-2 justify-end">
                     <button 
-                        onClick={() => setShowSavePresetModal(false)}
+                        onClick={() => { setShowSavePresetModal(false); setShareWithTeam(false); }}
                         className="px-4 py-2 text-sm text-textMuted hover:text-white"
                     >
                         Cancel
@@ -773,7 +810,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
           <div className="h-8 w-px bg-border hidden md:block" />
 
           {/* Plan Status & User Menu */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+             <TeamSwitcher onOpenTeamSettings={() => setShowTeamSettingsModal(true)} />
              <UserMenu 
                 onOpenBilling={() => setShowUpgradeModal(true)} 
                 onOpenAccount={() => setShowAccountModal(true)}

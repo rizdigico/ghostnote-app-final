@@ -1,10 +1,14 @@
+export type VoicePresetVisibility = 'private' | 'team';
+
 export interface VoicePreset {
   id: string;
   name: string;
   referenceText: string;
   isCustom?: boolean; // If true, it belongs to a specific user
   ownerId?: string;
-  teamId?: string; // Team ownership (future)
+  createdBy?: string; // Original creator
+  teamId?: string; // Team ownership
+  visibility?: VoicePresetVisibility; // 'private' or 'team' (optional for system presets)
 }
 
 export type UserPlan = 'echo' | 'clone' | 'syndicate';
