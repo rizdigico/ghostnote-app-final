@@ -1,4 +1,4 @@
-import { User, UserPlan, VoicePreset } from './types';
+import { User, UserPlan, VoicePreset, Team, TeamMember, TeamRole, TeamSettings } from './types';
 import { VOICE_PRESETS } from './constants';
 
 // --- MOCK DATABASE CONFIGURATION ---
@@ -6,6 +6,8 @@ import { VOICE_PRESETS } from './constants';
 
 const STORAGE_KEY_USER = 'ghostnote_user_session';
 const STORAGE_KEY_CUSTOM_VOICES = 'ghostnote_custom_voices';
+const STORAGE_KEY_TEAMS = 'ghostnote_teams';
+const STORAGE_KEY_TEAM_MEMBERS = 'ghostnote_team_members';
 
 export const dbService = {
   // --- AUTHENTICATION ---
@@ -207,5 +209,194 @@ export const dbService = {
     );
 
     localStorage.setItem(STORAGE_KEY_CUSTOM_VOICES, JSON.stringify(updatedVoices));
+  },
+
+  // ============ TEAM OPERATIONS ============
+
+  /**
+   * Get or create a team for a user (lazy creation)
+   * This ensures backward compatibility - existing users get a team on first access
+   */
+  async getOrCreateUserTeam(userId: string): Promise<Team> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    const teams = dbService.getTeamsFromStorage();
+    let team = teams.find(t => t.ownerId === userId);
+    
+    if (!team) {
+      // Create a new team for this user
+      const user = await dbService.getUserById(userId);
+      const teamId = 'team_' + Math.random().toString(36).substr(2, 9);
+      
+      team = {
+        id: teamId,
+        name: user ? `${user.name}'s Team` : "User's Team",
+        ownerId: userId,
+        subscriptionStatus: 'active',
+        subscriptionPlan: user?.plan || 'echo',
+        settings: {
+          allowMemberInvites: true,
+          defaultRole: TeamRole.EDITOR,
+          sharingEnabled: true
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      teams.push(team);
+      dbService.saveTeamsToStorage(teams);
+      
+      // Also create the team member relationship
+      await dbService.addTeamMember(teamId, userId, TeamRole.ADMIN);
+      
+      console.log(`[TeamService] Created team ${teamId} for user ${userId}`);
+    }
+    
+    return team;
+  },
+
+  /**
+   * Get team by ID
+   */
+  async getTeam(teamId: string): Promise<Team | null> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    
+    const teams = dbService.getTeamsFromStorage();
+    return teams.find(t => t.id === teamId) || null;
+  },
+
+  /**
+   * Get team by owner ID
+   */
+  async getTeamByOwnerId(ownerId: string): Promise<Team | null> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    
+    const teams = dbService.getTeamsFromStorage();
+    return teams.find(t => t.ownerId === ownerId) || null;
+  },
+
+  /**
+   * Update team settings
+   */
+  async updateTeamSettings(teamId: string, settings: Partial<TeamSettings>): Promise<Team> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    const teams = dbService.getTeamsFromStorage();
+    const teamIndex = teams.findIndex(t => t.id === teamId);
+    
+    if (teamIndex === -1) {
+      throw new Error('Team not found');
+    }
+    
+    teams[teamIndex] = {
+      ...teams[teamIndex],
+      settings: { ...teams[teamIndex].settings, ...settings },
+      updatedAt: new Date().toISOString()
+    };
+    
+    dbService.saveTeamsToStorage(teams);
+    return teams[teamIndex];
+  },
+
+  /**
+   * Add a member to a team
+   */
+  async addTeamMember(teamId: string, userId: string, role: TeamRole): Promise<TeamMember> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    const members = dbService.getTeamMembersFromStorage();
+    
+    // Check if already a member
+    const existingMember = members.find(m => m.teamId === teamId && m.userId === userId);
+    if (existingMember) {
+      throw new Error('User is already a team member');
+    }
+    
+    const member: TeamMember = {
+      id: 'member_' + Math.random().toString(36).substr(2, 9),
+      teamId,
+      userId,
+      role,
+      joinedAt: new Date().toISOString()
+    };
+    
+    members.push(member);
+    dbService.saveTeamMembersToStorage(members);
+    
+    return member;
+  },
+
+  /**
+   * Remove a member from a team
+   */
+  async removeTeamMember(teamId: string, userId: string): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    const members = dbService.getTeamMembersFromStorage();
+    const filtered = members.filter(m => !(m.teamId === teamId && m.userId === userId));
+    dbService.saveTeamMembersToStorage(filtered);
+  },
+
+  /**
+   * Get team members
+   */
+  async getTeamMembers(teamId: string): Promise<TeamMember[]> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    
+    const members = dbService.getTeamMembersFromStorage();
+    return members.filter(m => m.teamId === teamId);
+  },
+
+  /**
+   * Get user's role in a team
+   */
+  async getUserTeamRole(userId: string, teamId: string): Promise<TeamRole | null> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    
+    const members = dbService.getTeamMembersFromStorage();
+    const member = members.find(m => m.teamId === teamId && m.userId === userId);
+    return member?.role || null;
+  },
+
+  // ============ PRIVATE STORAGE HELPERS ============
+
+  getTeamsFromStorage(): Team[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_TEAMS);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.warn('Error reading teams from storage:', e);
+      return [];
+    }
+  },
+
+  saveTeamsToStorage(teams: Team[]): void {
+    localStorage.setItem(STORAGE_KEY_TEAMS, JSON.stringify(teams));
+  },
+
+  getTeamMembersFromStorage(): TeamMember[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_TEAM_MEMBERS);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.warn('Error reading team members from storage:', e);
+      return [];
+    }
+  },
+
+  saveTeamMembersToStorage(members: TeamMember[]): void {
+    localStorage.setItem(STORAGE_KEY_TEAM_MEMBERS, JSON.stringify(members));
+  },
+
+  /**
+   * Get user by ID (helper for team creation)
+   */
+  async getUserById(userId: string): Promise<User | null> {
+    const savedSession = localStorage.getItem(STORAGE_KEY_USER);
+    if (savedSession) {
+      const user = JSON.parse(savedSession);
+      if (user.id === userId) return user;
+    }
+    return null;
   }
 };

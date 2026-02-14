@@ -4,6 +4,7 @@ export interface VoicePreset {
   referenceText: string;
   isCustom?: boolean; // If true, it belongs to a specific user
   ownerId?: string;
+  teamId?: string; // Team ownership (future)
 }
 
 export type UserPlan = 'echo' | 'clone' | 'syndicate';
@@ -27,6 +28,44 @@ export interface User {
   instagramConnected?: boolean;
   apiKey?: string;
   createdAt?: Date; // Timestamp for when user was first created
+  teamId?: string; // Associated team ID
+}
+
+// Team roles
+export enum TeamRole {
+  ADMIN = 'admin',
+  EDITOR = 'editor',
+  VIEWER = 'viewer'
+}
+
+// Team subscription status
+export type TeamSubscriptionStatus = 'active' | 'suspended' | 'cancelled';
+
+// Team settings
+export interface TeamSettings {
+  allowMemberInvites: boolean;
+  defaultRole: TeamRole;
+  sharingEnabled: boolean;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  ownerId: string;
+  subscriptionStatus: TeamSubscriptionStatus;
+  subscriptionPlan: UserPlan;
+  settings: TeamSettings;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeamMember {
+  id: string;
+  teamId: string;
+  userId: string;
+  role: TeamRole;
+  joinedAt: string;
+  user?: User; // Populated when fetching member details
 }
 
 export enum RewriteStatus {

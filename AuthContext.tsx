@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserPlan } from './types';
+import { User, UserPlan, Team, TeamMember, TeamRole } from './types';
 import { dbService } from './dbService';
 import { auth } from './src/lib/firebase';
 import {
@@ -20,6 +20,8 @@ import { db } from './src/lib/firebase';
 
 interface AuthContextType {
   user: User | null;
+  team: Team | null;
+  teamMembers: TeamMember[];
   isLoading: boolean;
   loginWithGoogle: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
@@ -32,6 +34,11 @@ interface AuthContextType {
   generateApiKey: () => Promise<void>;
   authError: string | null;
   clearAuthError: () => void;
+  // Team functions
+  refreshTeam: () => Promise<void>;
+  addTeamMember: (userId: string, role: TeamRole) => Promise<void>;
+  removeTeamMember: (userId: string) => Promise<void>;
+  updateTeamSettings: (settings: Partial<Team['settings']>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -98,9 +105,28 @@ const ensureUserDocument = async (firebaseUser: any) => {
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [team, setTeam] = useState<Team | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [redirectProcessed, setRedirectProcessed] = useState(false);
+
+  // Function to load team data for a user
+  const loadTeamData = async (userId: string) => {
+    try {
+      // Get or create team for user (lazy creation)
+      const userTeam = await dbService.getOrCreateUserTeam(userId);
+      setTeam(userTeam);
+      
+      // Load team members
+      const members = await dbService.getTeamMembers(userTeam.id);
+      setTeamMembers(members);
+      
+      console.log('[AuthContext] Team loaded:', userTeam.id);
+    } catch (error) {
+      console.error('[AuthContext] Failed to load team data:', error);
+    }
+  };
 
   // CRITICAL: Handle Google OAuth redirect result ONCE on mount
   useEffect(() => {
@@ -114,6 +140,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           // User just came back from Google - ensure they exist in database
           const userData = await ensureUserDocument(result.user);
           setUser(userData);
+          // Load team data for the user
+          await loadTeamData(userData.id);
           setRedirectProcessed(true);
           setIsLoading(false);
           setAuthError(null);
@@ -191,7 +219,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
-              setUser(docSnap.data() as User);
+              const userData = docSnap.data() as User;
+              setUser(userData);
+              // Load team data when user is loaded
+              loadTeamData(userData.id);
             }
             setIsLoading(false);
             setAuthError(null);
@@ -202,6 +233,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else {
           // User is signed out
           setUser(null);
+          setTeam(null);
+          setTeamMembers([]);
           setIsLoading(false);
         }
       } catch (error) {
@@ -285,6 +318,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       await signOut(auth);
       setUser(null);
+      setTeam(null);
+      setTeamMembers([]);
     } catch (error: any) {
       const errorMessage = error?.message || 'Failed to sign out';
       setAuthError(errorMessage);
@@ -403,10 +438,62 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
+  // ============ TEAM FUNCTIONS ============
+
+  const refreshTeam = async () => {
+    if (!user) return;
+    await loadTeamData(user.id);
+  };
+
+  const addTeamMember = async (newUserId: string, role: TeamRole) => {
+    if (!team) {
+      throw new Error('No team loaded');
+    }
+    try {
+      await dbService.addTeamMember(team.id, newUserId, role);
+      // Refresh members list
+      const members = await dbService.getTeamMembers(team.id);
+      setTeamMembers(members);
+    } catch (error) {
+      console.error('Failed to add team member:', error);
+      throw error;
+    }
+  };
+
+  const removeTeamMember = async (removeUserId: string) => {
+    if (!team) {
+      throw new Error('No team loaded');
+    }
+    try {
+      await dbService.removeTeamMember(team.id, removeUserId);
+      // Refresh members list
+      const members = await dbService.getTeamMembers(team.id);
+      setTeamMembers(members);
+    } catch (error) {
+      console.error('Failed to remove team member:', error);
+      throw error;
+    }
+  };
+
+  const updateTeamSettings = async (settings: Partial<Team['settings']>) => {
+    if (!team) {
+      throw new Error('No team loaded');
+    }
+    try {
+      const updatedTeam = await dbService.updateTeamSettings(team.id, settings);
+      setTeam(updatedTeam);
+    } catch (error) {
+      console.error('Failed to update team settings:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         user,
+        team,
+        teamMembers,
         isLoading,
         loginWithGoogle,
         loginWithEmail,
@@ -419,6 +506,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         generateApiKey,
         authError,
         clearAuthError,
+        refreshTeam,
+        addTeamMember,
+        removeTeamMember,
+        updateTeamSettings,
       }}
     >
       {children}
