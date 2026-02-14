@@ -6,6 +6,7 @@ export const config = {
 import { chunkText, shouldUseRAG, TextChunk } from './lib/chunker';
 import { generateEmbedding, generateEmbeddingsForChunks } from './lib/embeddings';
 import { storeEmbeddings, findSimilarDocuments, hasSession, EmbeddingDocument } from './lib/vectorStore';
+import { analyzeLinguisticDNA, buildDNAPrompt, calculateSimilarityScore, LinguisticDNA } from './lib/linguisticAnalyzer';
 
 // --- SECURITY: RATE LIMITING ---
 // Simple in-memory rate limiter (in production, use Redis)
@@ -178,6 +179,13 @@ export default async function handler(req: Request) {
           console.log('[StyleInjection] Received:', { primaryVoiceId, injections });
         }
         
+        // Analyze Linguistic DNA from reference text
+        let dna: LinguisticDNA | null = null;
+        if (referenceText && referenceText.length > 100) {
+          dna = analyzeLinguisticDNA(referenceText);
+          controller.enqueue(encoder.encode(`Analyzing Linguistic DNA... Cadence: ${dna.cadence.avgSentenceLength} words/sentence\n`));
+        }
+        
         // 3. Validate and sanitize input
         if (!draft || typeof draft !== 'string') {
           controller.enqueue(encoder.encode("\n[Error: No text was provided for rewriting. Please enter some text to rewrite.]"));
@@ -217,7 +225,7 @@ export default async function handler(req: Request) {
         // 5. Define the Model - Meta: Llama 3.3 70B Instruct from OpenRouter
         const MODEL_ID = "meta-llama/llama-3.3-70b-instruct";
 
-        controller.enqueue(encoder.encode(`Initiating GhostNote...\n\n`));
+        controller.enqueue(encoder.encode(`Initiating GhostNote${dna ? ' with DNA Analysis' : ''}...\n\n`));
 
         // 6. Send Request to OpenRouter
         const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {

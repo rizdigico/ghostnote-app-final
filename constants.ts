@@ -1,4 +1,4 @@
-import { VoicePreset, LinguisticDna, PRESET_LIMITS, UserPlan } from './types';
+import { VoicePreset, LinguisticDNA, PRESET_LIMITS, UserPlan } from './types';
 
 // Helper function to check if user can add more presets
 export function canAddPreset(plan: UserPlan, currentPresetCount: number): boolean {
@@ -31,10 +31,13 @@ export const SYSTEM_PRESETS: VoicePreset[] = [
     metadata: {
       source: 'manual',
       linguisticDna: {
-        tone: ['persuasive', 'action-oriented', 'direct'],
-        vocabulary: ['results', 'win', 'opportunity', 'trust', 'action'],
-        sentencePatterns: ['short-declarative', 'imperative', 'rhetorical-questions'],
-        keywords: ['now', 'today', 'immediately', 'stop', 'start']
+        tone: 'persuasive',
+        cadence: { avgSentenceLength: 8, variance: 'low', minLength: 3, maxLength: 15 },
+        vocabulary: { complexity: 'simple', jargonLevel: 'low', uniqueWordRatio: 0.5 },
+        formatting: { casing: 'sentence', punctuation: 'standard', emojiFrequency: 'none', usesOxfordComma: false, doubleSpacing: false },
+        signaturePhrases: ['let\'s cut to the chase', 'act now'],
+        topWords: ['results', 'win', 'opportunity', 'trust', 'action'],
+        sampleSentences: ["Let's cut to the chase.", "You need results.", "Act now."]
       }
     }
   },
@@ -47,10 +50,13 @@ export const SYSTEM_PRESETS: VoicePreset[] = [
     metadata: {
       source: 'manual',
       linguisticDna: {
-        tone: ['emotive', 'narrative', 'inspirational'],
-        vocabulary: ['journey', 'transform', 'potential', 'dream', 'unfold'],
-        sentencePatterns: ['vivid-imagery', 'metaphors', 'narrative-arc'],
-        keywords: ['imagine', 'picture', 'once-upon-a-time', 'what-if']
+        tone: 'emotive',
+        cadence: { avgSentenceLength: 18, variance: 'medium', minLength: 8, maxLength: 28 },
+        vocabulary: { complexity: 'moderate', jargonLevel: 'low', uniqueWordRatio: 0.6 },
+        formatting: { casing: 'sentence', punctuation: 'standard', emojiFrequency: 'none', usesOxfordComma: true, doubleSpacing: false },
+        signaturePhrases: ['picture this', 'one day'],
+        topWords: ['journey', 'transform', 'potential', 'dream', 'unfold'],
+        sampleSentences: ["Picture this: a young entrepreneur.", "She faced rejection after rejection.", "This isn't just a story."]
       }
     }
   },
@@ -63,10 +69,13 @@ export const SYSTEM_PRESETS: VoicePreset[] = [
     metadata: {
       source: 'manual',
       linguisticDna: {
-        tone: ['minimal', 'direct', 'utilitarian'],
-        vocabulary: ['simple', 'direct', 'clean', 'essential'],
-        sentencePatterns: ['fragment', 'imperative', 'lowercase'],
-        keywords: ['less', 'more', 'cut', 'point', 'fact']
+        tone: 'minimal',
+        cadence: { avgSentenceLength: 4, variance: 'low', minLength: 2, maxLength: 8 },
+        vocabulary: { complexity: 'simple', jargonLevel: 'none', uniqueWordRatio: 0.3 },
+        formatting: { casing: 'lowercase', punctuation: 'minimal', emojiFrequency: 'none', usesOxfordComma: false, doubleSpacing: false },
+        signaturePhrases: ['less is more', 'cut the fluff'],
+        topWords: ['simple', 'direct', 'clean', 'essential', 'point'],
+        sampleSentences: ["less is more.", "cut the fluff.", "just facts."]
       }
     }
   },
@@ -79,10 +88,13 @@ export const SYSTEM_PRESETS: VoicePreset[] = [
     metadata: {
       source: 'manual',
       linguisticDna: {
-        tone: ['exciting', 'urgent', 'attention-grabbing'],
-        vocabulary: ['game-changer', 'viral', 'breaking', 'exclusive'],
-        sentencePatterns: ['hooks', 'questions', 'emoji-heavy', 'short-punchy'],
-        keywords: ['wait', 'stop', 'literally', 'no-cap', 'dare-you']
+        tone: 'energetic',
+        cadence: { avgSentenceLength: 6, variance: 'high', minLength: 2, maxLength: 12 },
+        vocabulary: { complexity: 'simple', jargonLevel: 'low', uniqueWordRatio: 0.4 },
+        formatting: { casing: 'uppercase', punctuation: 'heavy', emojiFrequency: 'high', usesOxfordComma: false, doubleSpacing: false },
+        signaturePhrases: ['stop scrolling', 'no cap', 'i dare you'],
+        topWords: ['game-changer', 'viral', 'breaking', 'exclusive', 'wait'],
+        sampleSentences: ["🔥 WAIT. Stop scrolling.", "You NEED to see this.", "No cap."]
       }
     }
   },
@@ -95,10 +107,13 @@ export const SYSTEM_PRESETS: VoicePreset[] = [
     metadata: {
       source: 'manual',
       linguisticDna: {
-        tone: ['formal', 'analytical', 'objective'],
-        vocabulary: ['empirical', 'correlation', 'hypothesis', 'analysis', 'methodology'],
-        sentencePatterns: ['complex', 'qualified', 'passive-voice'],
-        keywords: ['research', 'data', 'study', 'evidence', 'analysis']
+        tone: 'professional',
+        cadence: { avgSentenceLength: 22, variance: 'low', minLength: 12, maxLength: 35 },
+        vocabulary: { complexity: 'complex', jargonLevel: 'high', uniqueWordRatio: 0.7 },
+        formatting: { casing: 'sentence', punctuation: 'heavy', emojiFrequency: 'none', usesOxfordComma: true, doubleSpacing: false },
+        signaturePhrases: ['further research is warranted', 'based on empirical data'],
+        topWords: ['empirical', 'correlation', 'hypothesis', 'analysis', 'methodology'],
+        sampleSentences: ["This study examines the correlation.", "Based on empirical data.", "Further research is warranted."]
       }
     }
   }

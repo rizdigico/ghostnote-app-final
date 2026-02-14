@@ -1,12 +1,42 @@
 export type VoicePresetVisibility = 'private' | 'team';
 
-// Linguistic DNA extracted from voice profiles for efficient prompting
-export interface LinguisticDna {
-  tone: string[];
-  vocabulary: string[];
-  sentencePatterns: string[];
-  keywords: string[];
+// Linguistic DNA - Phase 2.0 Structure
+// Detailed metrics for scientific voice cloning
+export interface CadenceMetrics {
+  avgSentenceLength: number;
+  variance: 'low' | 'medium' | 'high';
+  minLength: number;
+  maxLength: number;
 }
+
+export interface VocabularyMetrics {
+  complexity: 'simple' | 'moderate' | 'complex';
+  jargonLevel: 'none' | 'low' | 'medium' | 'high';
+  uniqueWordRatio: number;
+}
+
+export interface FormattingFingerprint {
+  casing: 'lowercase' | 'uppercase' | 'mixed' | 'sentence';
+  punctuation: 'minimal' | 'standard' | 'heavy';
+  emojiFrequency: 'none' | 'low' | 'medium' | 'high';
+  usesOxfordComma: boolean | null;
+  doubleSpacing: boolean | null;
+}
+
+// Complete Linguistic DNA object
+export interface LinguisticDNA {
+  tone: string;
+  cadence: CadenceMetrics;
+  vocabulary: VocabularyMetrics;
+  formatting: FormattingFingerprint;
+  signaturePhrases: string[];
+  topWords: string[];
+  sampleSentences: string[];
+  analyzedAt?: string; // ISO timestamp
+}
+
+// Legacy interface alias for backward compatibility
+export type LinguisticDna = LinguisticDNA;
 
 // Voice injection with intensity (for style mixing)
 export interface VoiceInjection {
