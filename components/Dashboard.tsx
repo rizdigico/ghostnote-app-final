@@ -1069,10 +1069,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal, onNavigate
                         </div>
                         
                         <button 
-                          onClick={() => handleTabChange('url')}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold tracking-wider rounded transition-all ${activeTab === 'url' ? 'bg-background text-textMain shadow-sm border border-border/50' : 'text-textMuted hover:text-textMain'}`}
+                          onClick={() => onNavigate ? onNavigate('/library') : window.location.href = '/library'}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold tracking-wider rounded transition-all text-textMuted opacity-50 cursor-not-allowed relative group"
+                          title="Use Library to import from URL"
                         >
                           <Sparkles size={10} /> URL
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-black border border-border text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            Go to Library
+                          </div>
                         </button>
                       </div>
                    </div>
