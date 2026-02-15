@@ -32,6 +32,10 @@ interface AuthContextType {
   toggleInstagram: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   generateApiKey: () => Promise<void>;
+  // Subscription lifecycle methods
+  cancelSubscription: () => Promise<void>;
+  resumeSubscription: () => Promise<void>;
+  clearPaymentWarning: () => Promise<void>;
   authError: string | null;
   clearAuthError: () => void;
   // Team functions
@@ -439,6 +443,89 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }
 
+  // ============ SUBSCRIPTION LIFECYCLE FUNCTIONS ============
+
+  const cancelSubscription = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    setAuthError(null);
+    
+    try {
+      const response = await fetch('/api/billing/cancel-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to cancel subscription');
+      }
+      
+      // Update local user state
+      setUser({
+        ...user,
+        cancelAtPeriodEnd: true,
+        currentPeriodEnd: data.cancelDate
+      });
+      
+      console.log('✅ Subscription cancellation scheduled:', data.message);
+    } catch (error: any) {
+      console.error('Cancel subscription error:', error);
+      setAuthError(error.message || 'Failed to cancel subscription');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resumeSubscription = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    setAuthError(null);
+    
+    try {
+      const response = await fetch('/api/billing/resume-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to resume subscription');
+      }
+      
+      // Update local user state
+      setUser({
+        ...user,
+        cancelAtPeriodEnd: false,
+        currentPeriodEnd: data.subscription?.currentPeriodEnd
+      });
+      
+      console.log('✅ Subscription resumed:', data.message);
+    } catch (error: any) {
+      console.error('Resume subscription error:', error);
+      setAuthError(error.message || 'Failed to resume subscription');
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const clearPaymentWarning = async () => {
+    if (!user) return;
+    try {
+      const userDocRef = doc(db, 'users', user.id);
+      await updateDoc(userDocRef, { paymentWarning: false });
+      setUser({ ...user, paymentWarning: false });
+    } catch (error) {
+      console.error('Failed to clear payment warning:', error);
+    }
+  };
+
   // ============ TEAM FUNCTIONS ============
 
   const refreshTeam = async () => {
@@ -518,6 +605,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         toggleInstagram,
         deleteAccount,
         generateApiKey,
+        // Subscription lifecycle
+        cancelSubscription,
+        resumeSubscription,
+        clearPaymentWarning,
         authError,
         clearAuthError,
         refreshTeam,

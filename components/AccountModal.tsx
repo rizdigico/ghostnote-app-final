@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Trash2, AlertTriangle, User as UserIcon, Mail, Calendar, Shield, LifeBuoy, Code, Copy, Check, ExternalLink, Lock, Zap, AlertCircle } from 'lucide-react';
+import { X, Trash2, AlertTriangle, User as UserIcon, Mail, Calendar, Shield, LifeBuoy, Code, Copy, Check, ExternalLink, Lock, Zap, AlertCircle, CreditCard, RefreshCw, Clock } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import ApiDocsViewer from './ApiDocsViewer';
 
@@ -8,10 +8,10 @@ interface AccountModalProps {
   onClose: () => void;
 }
 
-type TabType = 'profile' | 'support' | 'developers';
+type TabType = 'profile' | 'subscription' | 'support' | 'developers';
 
 const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) => {
-  const { user, deleteAccount, generateApiKey, authError } = useAuth();
+  const { user, deleteAccount, generateApiKey, authError, cancelSubscription, resumeSubscription } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   
   // Profile State
@@ -22,6 +22,11 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) => {
   const [isGeneratingKey, setIsGeneratingKey] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
+  
+  // Subscription State
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showConfirmCancel, setShowConfirmCancel] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
 
   if (!isOpen || !user) return null;
 
@@ -85,6 +90,7 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) => {
                 </div>
                 <div className="flex-1 py-2">
                     <TabButton id="profile" icon={UserIcon} label="My Profile" />
+                    <TabButton id="subscription" icon={CreditCard} label="Subscription" />
                     <TabButton id="support" icon={LifeBuoy} label="Support" />
                     <TabButton id="developers" icon={Code} label="Developers" />
                 </div>
@@ -197,6 +203,184 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose }) => {
                                         Cancel
                                     </button>
                                 </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* --- SUBSCRIPTION TAB --- */}
+                {activeTab === 'subscription' && (
+                    <div className="max-w-xl animate-fade-in-up">
+                        <h3 className="text-2xl font-bold text-textMain mb-6">Subscription</h3>
+                        
+                        {/* Show for paid plans (clone/syndicate) */}
+                        {user.plan !== 'echo' ? (
+                            <>
+                                {/* Current Plan Card */}
+                                <div className="mb-6 p-6 rounded-xl border bg-surface/50">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-lg bg-accent/20 flex items-center justify-center">
+                                                <Shield size={24} className="text-accent" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-lg font-bold text-white capitalize">{user.plan} Plan</h4>
+                                                <p className="text-xs text-textMuted capitalize">{user.billingCycle || 'monthly'} billing</p>
+                                            </div>
+                                        </div>
+                                        {user.cancelAtPeriodEnd && (
+                                            <span className="px-3 py-1 bg-yellow-500/20 text-yellow-500 text-xs font-bold rounded-full flex items-center gap-1">
+                                                <AlertTriangle size={12} />
+                                                Ending
+                                            </span>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Period End Info */}
+                                    {user.currentPeriodEnd && (
+                                        <div className="flex items-center gap-2 text-sm text-textMuted mb-4 p-3 bg-background rounded-lg">
+                                            <Clock size={16} />
+                                            <span>
+                                                {user.cancelAtPeriodEnd 
+                                                    ? `Access ends on ${new Date(user.currentPeriodEnd).toLocaleDateString()}`
+                                                    : `Next billing date: ${new Date(user.currentPeriodEnd).toLocaleDateString()}`}
+                                            </span>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Payment Warning */}
+                                    {user.paymentWarning && (
+                                        <div className="flex items-start gap-2 text-sm text-orange-200 mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                                            <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="font-bold">Payment issue detected</p>
+                                                <p className="text-xs">Please update your payment method to avoid service interruption.</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Cancel/Resume Button */}
+                                    {!showConfirmCancel ? (
+                                        <div className="flex gap-3">
+                                            {user.cancelAtPeriodEnd ? (
+                                                <button
+                                                    onClick={() => setShowConfirmCancel(true)}
+                                                    className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-md flex items-center justify-center gap-2 transition-colors"
+                                                >
+                                                    <RefreshCw size={16} />
+                                                    Resume Subscription
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => setShowConfirmCancel(true)}
+                                                    className="flex-1 py-3 bg-red-600/20 hover:bg-red-600 text-red-400 font-bold rounded-md flex items-center justify-center gap-2 transition-colors"
+                                                >
+                                                    Cancel Subscription
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="border border-border rounded-lg p-4 bg-background">
+                                            {subscriptionError && (
+                                                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-200">
+                                                    {subscriptionError}
+                                                </div>
+                                            )}
+                                            
+                                            {user.cancelAtPeriodEnd ? (
+                                                <>
+                                                    <p className="text-sm text-textMain mb-4">
+                                                        Are you sure you want to resume your subscription? You'll continue being billed and have full access.
+                                                    </p>
+                                                    <div className="flex gap-3">
+                                                        <button
+                                                            onClick={async () => {
+                                                                setIsCancelling(true);
+                                                                setSubscriptionError(null);
+                                                                try {
+                                                                    await resumeSubscription();
+                                                                    setShowConfirmCancel(false);
+                                                                } catch (err: any) {
+                                                                    setSubscriptionError(err.message || 'Failed to resume subscription');
+                                                                } finally {
+                                                                    setIsCancelling(false);
+                                                                }
+                                                            }}
+                                                            disabled={isCancelling}
+                                                            className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-md transition-colors disabled:opacity-50"
+                                                        >
+                                                            {isCancelling ? 'Resuming...' : 'Yes, Resume'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowConfirmCancel(false);
+                                                                setSubscriptionError(null);
+                                                            }}
+                                                            disabled={isCancelling}
+                                                            className="flex-1 py-2 bg-surface border border-border text-textMuted hover:text-white font-bold rounded-md transition-colors"
+                                                        >
+                                                            Keep Canceled
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <p className="text-sm text-textMain mb-4">
+                                                        Are you sure you want to cancel? You'll keep access until {user.currentPeriodEnd ? new Date(user.currentPeriodEnd).toLocaleDateString() : 'the end of your billing period'}.
+                                                    </p>
+                                                    <div className="flex gap-3">
+                                                        <button
+                                                            onClick={async () => {
+                                                                setIsCancelling(true);
+                                                                setSubscriptionError(null);
+                                                                try {
+                                                                    await cancelSubscription();
+                                                                    setShowConfirmCancel(false);
+                                                                } catch (err: any) {
+                                                                    setSubscriptionError(err.message || 'Failed to cancel subscription');
+                                                                } finally {
+                                                                    setIsCancelling(false);
+                                                                }
+                                                            }}
+                                                            disabled={isCancelling}
+                                                            className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-md transition-colors disabled:opacity-50"
+                                                        >
+                                                            {isCancelling ? 'Cancelling...' : 'Yes, Cancel'}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowConfirmCancel(false);
+                                                                setSubscriptionError(null);
+                                                            }}
+                                                            disabled={isCancelling}
+                                                            className="flex-1 py-2 bg-surface border border-border text-textMuted hover:text-white font-bold rounded-md transition-colors"
+                                                        >
+                                                            Keep Subscription
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                <div className="text-xs text-textMuted">
+                                    <p>Need to change your plan? Contact support or upgrade through the pricing page.</p>
+                                </div>
+                            </>
+                        ) : (
+                            /* Echo (Free) Plan */
+                            <div className="text-center py-8">
+                                <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mx-auto mb-4 text-textMuted">
+                                    <Shield size={32} />
+                                </div>
+                                <h4 className="text-xl font-bold text-white mb-2">You're on the Echo Plan</h4>
+                                <p className="text-sm text-textMuted mb-6">
+                                    Upgrade to Clone or Syndicate to unlock premium features.
+                                </p>
+                                <button className="px-6 py-3 bg-accent hover:bg-accent/80 text-white font-bold rounded-md transition-colors">
+                                    View Plans
+                                </button>
                             </div>
                         )}
                     </div>

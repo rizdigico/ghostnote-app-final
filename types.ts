@@ -64,6 +64,9 @@ export interface VoicePreset {
 
 export type UserPlan = 'echo' | 'clone' | 'syndicate';
 
+// Subscription status for UI display
+export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing' | 'none';
+
 // Preset limits per plan
 export const PRESET_LIMITS: Record<UserPlan, number> = {
   echo: 2,
@@ -84,6 +87,13 @@ export interface User {
   apiKey?: string;
   createdAt?: Date; // Timestamp for when user was first created
   teamId?: string; // Associated team ID
+  
+  // Subscription lifecycle fields
+  subscriptionId?: string; // Stripe subscription ID (sub_xxx)
+  customerId?: string; // Stripe customer ID (cus_xxx)
+  cancelAtPeriodEnd?: boolean; // True if user scheduled cancellation
+  currentPeriodEnd?: string; // ISO timestamp when access ends
+  paymentWarning?: boolean; // Payment failure notification flag
 }
 
 // Team roles

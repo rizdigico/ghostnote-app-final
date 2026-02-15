@@ -96,7 +96,8 @@ export default async function handler(req: any, res: any) {
     // Return the session ID so client can redirect
     res.status(200).json({ 
       sessionId: session.id,
-      url: session.url 
+      url: session.url,
+      customerId: session.customer
     });
   } catch (error: any) {
     console.error('Checkout Error:', error);

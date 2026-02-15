@@ -165,6 +165,13 @@ export default async function handler(req: any, res: any) {
             credits: creditsAmount,
             apiKey: finalApiKey,
             
+            // Store subscription and customer IDs for lifecycle management
+            subscriptionId: session.subscription,
+            customerId: customerId,
+            currentPeriodEnd: null, // Will be set on first subscription update
+            cancelAtPeriodEnd: false,
+            paymentWarning: false,
+            
             // MARK TRIAL AS USED (only for Clone plan first purchase)
             ...(planName === 'clone' && !userData?.hasUsedTrial ? { hasUsedTrial: true } : {})
         });
@@ -178,7 +185,23 @@ export default async function handler(req: any, res: any) {
     const subscription = event.data.object as any;
     const userId = subscription.metadata?.userId;
     
-    if (userId && subscription.status === 'active' && subscription.trial_end) {
+    if (!userId) {
+      console.log('No userId in subscription update, skipping');
+      res.status(200).json({ received: true });
+      return;
+    }
+    
+    const userRef = db.collection('users').doc(userId);
+    const userSnap = await userRef.get();
+    
+    if (!userSnap.exists) {
+      console.error(`User not found for subscription update: ${userId}`);
+      res.status(200).json({ received: true });
+      return;
+    }
+    
+    // Handle trial end notification
+    if (subscription.status === 'active' && subscription.trial_end) {
         // Check if trial just ended (within last 24 hours)
         const trialEndedRecently = (Date.now() / 1000) - subscription.trial_end < 86400;
         
@@ -187,6 +210,94 @@ export default async function handler(req: any, res: any) {
             // Could send email notification here
         }
     }
+    
+    // Update subscription lifecycle fields
+    const currentPeriodEnd = subscription.current_period_end 
+      ? new Date(subscription.current_period_end * 1000).toISOString()
+      : null;
+    
+    await userRef.update({
+      cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+      currentPeriodEnd: currentPeriodEnd,
+    });
+    
+    console.log(`📝 Subscription updated for user ${userId}: cancel_at_period_end=${subscription.cancel_at_period_end}, period_end=${currentPeriodEnd}`);
+  }
+
+  // 6. HANDLE SUBSCRIPTION DELETION (immediate cancellation or expiration)
+  if (event.type === 'customer.subscription.deleted') {
+    const subscription = event.data.object as any;
+    const userId = subscription.metadata?.userId;
+    
+    if (!userId) {
+      console.log('No userId in subscription deletion, skipping');
+      res.status(200).json({ received: true });
+      return;
+    }
+    
+    console.log(`🗑️ Subscription deleted for user ${userId}, downgrading to Echo plan`);
+    
+    const userRef = db.collection('users').doc(userId);
+    const userSnap = await userRef.get();
+    
+    if (!userSnap.exists) {
+      console.error(`User not found for subscription deletion: ${userId}`);
+      res.status(200).json({ received: true });
+      return;
+    }
+    
+    // Downgrade user to Echo plan
+    await userRef.update({
+      plan: 'echo',
+      subscriptionId: null, // Clear subscription ID
+      customerId: null, // Clear customer ID
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+      credits: 10, // Reset to free tier credits
+      billingCycle: null,
+    });
+    
+    console.log(`✅ User ${userId} downgraded to Echo plan after subscription deletion`);
+    
+    // TODO: Send subscription ended email
+  }
+
+  // 7. HANDLE PAYMENT FAILURE
+  if (event.type === 'invoice.payment_failed') {
+    const invoice = event.data.object as any;
+    const customerId = invoice.customer;
+    
+    if (!customerId) {
+      console.log('No customerId in payment failure, skipping');
+      res.status(200).json({ received: true });
+      return;
+    }
+    
+    console.log(`⚠️ Payment failed for customer ${customerId}`);
+    
+    // Find user by customerId
+    const userQuery = await db.collection('users')
+      .where('customerId', '==', customerId)
+      .limit(1)
+      .get();
+    
+    if (userQuery.empty) {
+      console.log(`No user found for customer ${customerId}`);
+      res.status(200).json({ received: true });
+      return;
+    }
+    
+    const userId = userQuery.docs[0].id;
+    const userRef = db.collection('users').doc(userId);
+    
+    // Set payment warning flag
+    await userRef.update({
+      paymentWarning: true,
+    });
+    
+    console.log(`⚠️ Payment warning set for user ${userId}`);
+    
+    // TODO: Send payment failed email
   }
 
   res.status(200).json({ received: true });
