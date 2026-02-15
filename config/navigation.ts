@@ -13,7 +13,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'studio', label: 'Studio', path: '/studio', icon: PenTool },
   { id: 'repurpose', label: 'Repurpose', path: '/repurpose', icon: RefreshCw },
   { id: 'social', label: 'Social', path: '/social', icon: Rocket, comingSoon: true },
-  { id: 'library', label: 'Library', path: '/library', icon: Database, comingSoon: true },
+  { id: 'library', label: 'Library', path: '/library', icon: Database },
   { id: 'team', label: 'Team', path: '/team', icon: Users, comingSoon: true },
 ];
 
