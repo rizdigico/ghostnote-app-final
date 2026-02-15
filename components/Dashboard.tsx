@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Copy, Check, ArrowRight, Command, Upload, FileText, X, Paperclip, Lock, Crown, Zap, Database, FileSpreadsheet, Trash2, Download, ChevronDown, FileType, FileCode, FileJson, Save, AlertCircle, Sparkles } from 'lucide-react';
+import { Copy, Check, ArrowRight, Command, Upload, FileText, X, Paperclip, Lock, Crown, Zap, Database, FileSpreadsheet, Trash2, Download, ChevronDown, FileType, FileCode, FileJson, Save, AlertCircle, Sparkles, Plus } from 'lucide-react';
 import Button from './Button';
 import TextArea from './TextArea';
 import Select from './Select';
@@ -20,9 +20,10 @@ import { jsPDF } from "jspdf";
 interface DashboardProps {
   onGoHome: () => void;
   onViewLegal: (type: 'terms' | 'privacy') => void;
+  onNavigate?: (path: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
+const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal, onNavigate }) => {
   const { user, team, updatePlan, deductCredit } = useAuth();
   
   // Local UI State
@@ -1007,6 +1008,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                         </button>
                     )}
                 </div>
+
+                {/* Link to Library */}
+                {onNavigate && (
+                  <div className="mt-3 pt-3 border-t border-border">
+                    <button
+                      onClick={() => onNavigate('/library')}
+                      className="flex items-center gap-2 text-sm text-primary hover:underline"
+                    >
+                      <Plus size={16} />
+                      Create New Voice
+                    </button>
+                  </div>
+                )}
 
                 {/* TABS & INPUT */}
                 <div className="flex flex-col gap-4">
