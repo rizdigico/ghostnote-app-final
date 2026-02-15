@@ -717,7 +717,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
                   <h3 className="text-xl font-bold mb-2">The Echo</h3>
                   <div className="text-3xl font-bold mb-6">$0 <span className="text-sm font-normal text-textMuted">/ forever</span></div>
                   <ul className="space-y-3 mb-8 flex-1">
-                     {['10 Credits / Day', 'Text Input Only', 'Standard Speed'].map((f, i) => (
+                     {['10 Credits / Day', '2 Custom Voice Presets', 'Text Input Only', 'Standard Speed'].map((f, i) => (
                         <li key={i} className="flex gap-3 text-sm"><Check size={16} className="text-textMuted" /> {f}</li>
                      ))}
                   </ul>
@@ -734,7 +734,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
                     <span className="text-sm font-normal text-textMuted">/ {billingCycle === 'monthly' ? 'month' : 'year'}</span>
                   </div>
                   <ul className="space-y-3 mb-8 flex-1">
-                     {['Unlimited Credits', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Priority Generation'].map((f, i) => (
+                     {['Unlimited Credits', '10 Custom Voice Presets', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Priority Generation', 'Team Collaboration (3 Seats)'].map((f, i) => (
                         <li key={i} className="flex gap-3 text-sm"><Check size={16} className="text-accent" /> {f}</li>
                      ))}
                   </ul>
@@ -758,7 +758,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
                     <span className="text-sm font-normal text-textMuted">/ {billingCycle === 'monthly' ? 'month' : 'year'}</span>
                   </div>
                   <ul className="space-y-3 mb-8 flex-1">
-                     {['Everything in Clone', 'Bulk CSV Processing', 'API Access', 'Concierge Support'].map((f, i) => (
+                     {['Everything in Clone', 'Unlimited Team Seats', 'Agency Roles (Viewer, Client)', 'Asset Locking', 'Team Analytics', 'Client Approval Mode', 'Audit Logs'].map((f, i) => (
                         <li key={i} className="flex gap-3 text-sm"><Check size={16} className="text-purple-400" /> {f}</li>
                      ))}
                   </ul>

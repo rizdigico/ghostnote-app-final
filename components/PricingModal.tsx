@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Check, X, Zap, Crown, Ghost, Lock } from 'lucide-react';
 import { UserPlan } from '../types';
 import { auth } from '../src/lib/firebase';
+import { PRICING_FEATURES, FEATURE_TOOLTIPS } from '../config/pricingFeatures';
 
 // FIX: Price IDs for Stripe checkout
 const PLAN_PRICE_IDS: Record<UserPlan, string> = {
@@ -88,8 +89,8 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       price: '$0',
       period: 'Forever',
       icon: <Ghost className="w-6 h-6" />,
-      features: ['10 Credits / Day', '2 Custom Voice Presets', 'Text Input Only', 'Standard Speed'],
-      disabled: ['File Upload (Brand DNA)', 'Tone Intensity Slider', 'Bulk CSV Processing'],
+      features: PRICING_FEATURES.echo.features.map(f => `${f.icon || ''} ${f.name}`.trim()).filter(f => f),
+      disabled: PRICING_FEATURES.echo.disabled.map(f => `${f.icon || ''} ${f.name}`.trim()).filter(f => f),
       color: 'border-border',
       btnColor: 'bg-surface hover:bg-border'
     },
@@ -99,9 +100,10 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       price: billingCycle === 'monthly' ? '$29' : '$244',
       period: billingCycle === 'monthly' ? '/ month' : '/ year',
       popular: true,
+      badge: currentPlan === 'echo' ? 'Unlock Teams' : undefined,
       icon: <Zap className="w-6 h-6 text-black" />,
-      features: ['Unlimited Credits', '10 Custom Voice Presets', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Priority Generation'],
-      disabled: ['Bulk CSV Processing'],
+      features: PRICING_FEATURES.clone.features.map(f => `${f.icon || ''} ${f.name}`.trim()).filter(f => f),
+      disabled: PRICING_FEATURES.clone.disabled.map(f => `${f.icon || ''} ${f.name}`.trim()).filter(f => f),
       color: 'border-accent shadow-[0_0_30px_-10px_rgba(217,249,157,0.3)]',
       btnColor: 'bg-accent text-black hover:bg-white'
     },
@@ -110,8 +112,9 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       name: 'The Syndicate',
       price: billingCycle === 'monthly' ? '$99' : '$832',
       period: billingCycle === 'monthly' ? '/ month' : '/ year',
+      badge: currentPlan === 'clone' ? 'Unlock Unlimited' : (currentPlan === 'echo' ? 'Full Access' : undefined),
       icon: <Crown className="w-6 h-6" />,
-      features: ['Unlimited Credits', 'Unlimited Custom Voice Presets', 'Brand DNA File Upload', 'Tone Intensity Slider', 'Bulk CSV Processing', 'API Access'],
+      features: PRICING_FEATURES.syndicate.features.map(f => `${f.icon || ''} ${f.name}`.trim()).filter(f => f),
       disabled: [],
       color: 'border-purple-500/50 shadow-[0_0_30px_-10px_rgba(168,85,247,0.2)]',
       btnColor: 'bg-purple-600 text-white hover:bg-purple-500'
@@ -162,6 +165,11 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-accent text-black text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
                     Recommended
+                  </div>
+                )}
+                {plan.badge && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                    {plan.badge}
                   </div>
                 )}
 

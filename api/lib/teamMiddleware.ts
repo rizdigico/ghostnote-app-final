@@ -9,11 +9,15 @@
  * - getUserTeam: Get user's current team (with fallback for legacy users)
  * - canAccessResource: Check if user can access a specific resource
  * - getUserRole: Get user's role in a team
+ * - checkSeatLimit: Check if team has reached seat limit
+ * - checkRolePermission: Check if role is allowed for plan
+ * - getUserPlan: Get user's subscription plan
  */
 
 import { db } from '../../src/lib/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { TeamRole, Team, TeamMember } from '../../types';
+import { TeamRole, Team, TeamMember, UserPlan, VoicePreset } from '../../types';
+import { PLAN_LIMITS, canInviteRole, getSeatLimit, canCreateTeam, isSeatLimitReached } from '../../config/subscriptionLimits';
 
 // Storage keys for localStorage fallback
 const STORAGE_KEY_TEAMS = 'ghostnote_teams';
@@ -142,11 +146,12 @@ export async function hasTeamPermission(
     return false;
   }
 
-  // Role hierarchy: ADMIN > EDITOR > VIEWER
+  // Role hierarchy: ADMIN > EDITOR > VIEWER > CLIENT
   const roleHierarchy: Record<TeamRole, number> = {
-    [TeamRole.ADMIN]: 3,
-    [TeamRole.EDITOR]: 2,
-    [TeamRole.VIEWER]: 1
+    [TeamRole.ADMIN]: 4,
+    [TeamRole.EDITOR]: 3,
+    [TeamRole.VIEWER]: 2,
+    [TeamRole.CLIENT]: 1
   };
 
   return roleHierarchy[userRole] >= roleHierarchy[requiredRole];
@@ -306,4 +311,152 @@ export async function attachTeamContext(req: any, res: any) {
     console.error('[TeamMiddleware] Failed to attach team context:', error);
     return res.status(500).json({ error: 'Failed to load team context' });
   }
+}
+
+// ============================================================================
+// PLAN ENFORCEMENT FUNCTIONS
+// ============================================================================
+
+/**
+ * Get user's subscription plan from their team or user record
+ */
+export async function getUserPlan(userId: string): Promise<UserPlan> {
+  try {
+    // First try to get from team
+    const { team } = await getUserTeam(userId);
+    if (team?.subscriptionPlan) {
+      return team.subscriptionPlan as UserPlan;
+    }
+  } catch (error) {
+    console.warn('[TeamMiddleware] Failed to get plan from team:', error);
+  }
+
+  // Fallback to user document
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (userDoc.exists()) {
+      return userDoc.data().plan as UserPlan || 'echo';
+    }
+  } catch (error) {
+    console.warn('[TeamMiddleware] Failed to get plan from user:', error);
+  }
+
+  return 'echo'; // Default to free plan
+}
+
+/**
+ * Check if team has reached seat limit
+ */
+export async function checkSeatLimit(teamId: string): Promise<{
+  allowed: boolean;
+  current: number;
+  limit: number;
+  message?: string;
+}> {
+  try {
+    // Get team's subscription plan
+    const teamDoc = await getDoc(doc(db, 'teams', teamId));
+    if (!teamDoc.exists()) {
+      return { allowed: false, current: 0, limit: 1, message: 'Team not found' };
+    }
+
+    const teamData = teamDoc.data();
+    const plan = (teamData.subscriptionPlan || 'echo') as UserPlan;
+    const limit = getSeatLimit(plan);
+
+    // Count current members
+    const membersRef = collection(db, 'team_members');
+    const q = query(membersRef, where('teamId', '==', teamId));
+    const snapshot = await getDocs(q);
+    const currentCount = snapshot.size + 1; // +1 for owner
+
+    const allowed = currentCount < limit;
+    
+    return {
+      allowed,
+      current: currentCount,
+      limit,
+      message: allowed ? undefined : `Seat limit reached (${limit}). Upgrade to add more members.`
+    };
+  } catch (error) {
+    console.error('[TeamMiddleware] checkSeatLimit error:', error);
+    // Fail open - allow operation if we can't check
+    return { allowed: true, current: 0, limit: 1 };
+  }
+}
+
+/**
+ * Check if a role is allowed for a given plan
+ */
+export function checkRolePermission(plan: UserPlan, targetRole: TeamRole): {
+  allowed: boolean;
+  message?: string;
+} {
+  const allowed = canInviteRole(plan, targetRole as any);
+  
+  if (!allowed) {
+    const roleMessages: Record<string, string> = {
+      viewer: 'Viewer role is available on Syndicate plan only.',
+      client: 'Client role is available on Syndicate plan only.'
+    };
+    
+    return {
+      allowed: false,
+      message: roleMessages[targetRole] || `Role '${targetRole}' is not available on your plan.`
+    };
+  }
+  
+  return { allowed: true };
+}
+
+/**
+ * Check if user can create/manage teams
+ */
+export async function canUserCreateTeam(userId: string): Promise<{
+  allowed: boolean;
+  message?: string;
+}> {
+  const plan = await getUserPlan(userId);
+  const allowed = canCreateTeam(plan);
+  
+  return {
+    allowed,
+    message: allowed ? undefined : 'Team creation is available on Clone plan or higher.'
+  };
+}
+
+/**
+ * Check if voice preset can be locked (Syndicate only)
+ */
+export async function canLockVoicePreset(userId: string): Promise<{
+  allowed: boolean;
+  message?: string;
+}> {
+  const plan = await getUserPlan(userId);
+  const allowed = plan === 'syndicate';
+  
+  return {
+    allowed,
+    message: allowed ? undefined : 'Voice preset locking is available on Syndicate plan only.'
+  };
+}
+
+/**
+ * Check if user can modify a locked voice preset
+ * Admins can always modify, editors cannot modify locked presets
+ */
+export async function canModifyLockedPreset(
+  userId: string,
+  preset: VoicePreset
+): Promise<boolean> {
+  // If preset is not locked, allow modification
+  if (!preset.isLocked) {
+    return true;
+  }
+
+  // Check user's role
+  const role = await getUserRole(userId, preset.teamId || '');
+  
+  // Only admins can modify locked presets
+  return role === TeamRole.ADMIN;
 }

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Shield, Trash2, Mail, UserPlus, Loader2 } from 'lucide-react';
+import { X, Users, Shield, Trash2, Mail, UserPlus, Loader2, Lock, Unlock, Crown, Zap } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { TeamMember, TeamRole } from '../types';
 import Button from './Button';
 import Select from './Select';
+import { PLAN_LIMITS, getSeatLimit, canInviteRole, getAvailableRoles, isSeatLimitReached, getSeatLimitMessage, PLAN_POWER } from '../config/subscriptionLimits';
 
 interface TeamSettingsModalProps {
   isOpen: boolean;
@@ -21,6 +22,14 @@ const TeamSettingsModal: React.FC<TeamSettingsModalProps> = ({ isOpen, onClose }
   const [inviteError, setInviteError] = useState('');
   const [copiedInviteLink, setCopiedInviteLink] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+
+  // Get user's plan
+  const userPlan = user?.plan || 'echo';
+  const seatLimit = getSeatLimit(userPlan);
+  const currentSeatCount = teamMembers.length + 1; // +1 for owner
+  const isAtSeatLimit = isSeatLimitReached(userPlan, currentSeatCount);
+  const canCreateTeam = userPlan !== 'echo';
+  const availableRoles = getAvailableRoles(userPlan);
 
   useEffect(() => {
     if (team) {
@@ -78,14 +87,28 @@ const TeamSettingsModal: React.FC<TeamSettingsModalProps> = ({ isOpen, onClose }
         return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
       case TeamRole.VIEWER:
         return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+      case TeamRole.CLIENT:
+        return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
     }
   };
 
-  const roleOptions = [
-    { value: TeamRole.ADMIN, label: 'Admin - Full access' },
-    { value: TeamRole.EDITOR, label: 'Editor - Can create/edit content' },
-    { value: TeamRole.VIEWER, label: 'Viewer - Read only' },
-  ];
+  const roleOptions = availableRoles.map(role => ({
+    value: role.value,
+    label: role.locked ? `${role.label} 🔒` : role.label
+  }));
+
+  // Get plan badge color
+  const getPlanBadge = () => {
+    switch (userPlan) {
+      case 'clone':
+        return { bg: 'bg-yellow-500/20', text: 'text-yellow-400', icon: <Zap size={12} />, label: 'Clone' };
+      case 'syndicate':
+        return { bg: 'bg-purple-500/20', text: 'text-purple-400', icon: <Crown size={12} />, label: 'Syndicate' };
+      default:
+        return null;
+    }
+  };
+  const planBadge = getPlanBadge();
 
   return (
     <>
@@ -122,12 +145,51 @@ const TeamSettingsModal: React.FC<TeamSettingsModalProps> = ({ isOpen, onClose }
             <div>
               <div className="flex items-center justify-between mb-4">
                 <label className="text-xs font-semibold text-textMuted uppercase tracking-widest">
-                  Team Members ({teamMembers.length})
+                  Team Members ({teamMembers.length + 1})
+                  {planBadge && (
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${planBadge.bg} ${planBadge.text} flex items-center gap-1 inline-flex`}>
+                      {planBadge.icon} {planBadge.label}
+                    </span>
+                  )}
                 </label>
-                <Button variant="secondary" onClick={() => setShowInviteModal(true)} className="flex items-center gap-2">
-                  <UserPlus size={14} />
-                  Invite Member
-                </Button>
+                
+                {canCreateTeam ? (
+                  <div className="flex items-center gap-3">
+                    {/* Seat Counter for Clone */}
+                    {userPlan === 'clone' && (
+                      <div className="text-xs text-textMuted">
+                        <span className={isAtSeatLimit ? 'text-yellow-400' : ''}>
+                          {currentSeatCount} / {seatLimit} seats
+                        </span>
+                      </div>
+                    )}
+                    {/* Unlimited badge for Syndicate */}
+                    {userPlan === 'syndicate' && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-400">
+                        UNLIMITED
+                      </span>
+                    )}
+                    
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => setShowInviteModal(true)} 
+                      className="flex items-center gap-2"
+                      disabled={isAtSeatLimit}
+                    >
+                      <UserPlus size={14} />
+                      {isAtSeatLimit ? 'Seat Limit Reached' : 'Invite Member'}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    variant="primary" 
+                    onClick={() => window.location.href = '/?showPricing=true'} 
+                    className="flex items-center gap-2"
+                  >
+                    <Zap size={14} className="text-black" />
+                    Upgrade to Unlock Teams
+                  </Button>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -230,7 +292,14 @@ const TeamSettingsModal: React.FC<TeamSettingsModalProps> = ({ isOpen, onClose }
                 <ul className="text-xs text-textMuted space-y-1">
                   <li>• <span className="text-red-400">Admin</span>: Full access, manage settings</li>
                   <li>• <span className="text-blue-400">Editor</span>: Create and edit content</li>
-                  <li>• <span className="text-gray-400">Viewer</span>: Read-only access</li>
+                  {userPlan === 'syndicate' ? (
+                    <>
+                      <li>• <span className="text-gray-400">Viewer</span>: Read-only access</li>
+                      <li>• <span className="text-purple-400">Client</span>: External stakeholder access</li>
+                    </>
+                  ) : (
+                    <li className="text-gray-600">• <Lock size={10} className="inline mr-1" />Viewer & Client: Syndicate only</li>
+                  )}
                 </ul>
               </div>
 

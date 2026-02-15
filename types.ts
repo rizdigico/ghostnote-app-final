@@ -54,6 +54,7 @@ export interface VoicePreset {
   createdBy?: string; // Original creator
   teamId?: string; // Team ownership
   visibility?: VoicePresetVisibility; // 'private' or 'team' (optional for system presets)
+  isLocked?: boolean; // Syndicate-only: lock preset from editing
   metadata?: {
     source?: 'manual' | 'url' | 'file';
     sourceUrl?: string;
@@ -89,7 +90,8 @@ export interface User {
 export enum TeamRole {
   ADMIN = 'admin',
   EDITOR = 'editor',
-  VIEWER = 'viewer'
+  VIEWER = 'viewer',
+  CLIENT = 'client' // External stakeholder - Syndicate only
 }
 
 // Team subscription status
