@@ -12,9 +12,11 @@ interface TeamSettingsModalProps {
 }
 
 const TeamSettingsModal: React.FC<TeamSettingsModalProps> = ({ isOpen, onClose }) => {
-  const { user, team, teamMembers, addTeamMember, removeTeamMember, refreshTeam } = useAuth();
+  const { user, team, teamMembers, addTeamMember, removeTeamMember, refreshTeam, updateTeamName } = useAuth();
   
   const [teamName, setTeamName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<TeamRole>(TeamRole.EDITOR);
@@ -36,6 +38,23 @@ const TeamSettingsModal: React.FC<TeamSettingsModalProps> = ({ isOpen, onClose }
       setTeamName(team.name);
     }
   }, [team]);
+
+  const handleSaveTeamName = async () => {
+    if (!teamName.trim() || !team) return;
+    
+    setIsSaving(true);
+    setSaveSuccess(false);
+    
+    try {
+      await updateTeamName(teamName);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } catch (error) {
+      console.error('Failed to save team name:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (!isOpen || !user || !team) return null;
 
@@ -131,14 +150,22 @@ const TeamSettingsModal: React.FC<TeamSettingsModalProps> = ({ isOpen, onClose }
           <div className="overflow-y-auto p-6" style={{ maxHeight: 'calc(90vh - 140px)' }}>
             <div className="mb-8">
               <label className="text-xs font-semibold text-textMuted uppercase tracking-widest">Team Name</label>
-              <div className="mt-2">
+              <div className="mt-2 flex gap-2">
                 <input
                   type="text"
                   value={teamName}
                   onChange={(e) => setTeamName(e.target.value)}
-                  className="w-full bg-surface border border-border rounded-md px-4 py-2 text-sm text-textMain focus:border-accent focus:outline-none"
+                  className="flex-1 bg-surface border border-border rounded-md px-4 py-2 text-sm text-textMain focus:border-accent focus:outline-none"
                   placeholder="Enter team name"
                 />
+                <Button 
+                  variant="primary" 
+                  onClick={handleSaveTeamName}
+                  disabled={isSaving || !teamName.trim() || teamName === team?.name}
+                  className="min-w-[80px]"
+                >
+                  {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save'}
+                </Button>
               </div>
             </div>
 

@@ -39,6 +39,7 @@ interface AuthContextType {
   addTeamMember: (userId: string, role: TeamRole) => Promise<void>;
   removeTeamMember: (userId: string) => Promise<void>;
   updateTeamSettings: (settings: Partial<Team['settings']>) => Promise<void>;
+  updateTeamName: (name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -488,6 +489,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateTeamName = async (name: string) => {
+    if (!team) {
+      throw new Error('No team loaded');
+    }
+    try {
+      const updatedTeam = await dbService.updateTeamName(team.id, name);
+      setTeam(updatedTeam);
+    } catch (error) {
+      console.error('Failed to update team name:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -510,6 +524,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         addTeamMember,
         removeTeamMember,
         updateTeamSettings,
+        updateTeamName,
       }}
     >
       {children}

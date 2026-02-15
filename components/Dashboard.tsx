@@ -57,6 +57,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
     sourceUrl: string;
   } | null>(null);
 
+  // Handle URL parameters on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('showPricing') === 'true') {
+      setShowUpgradeModal(true);
+      // Clean up the URL without refreshing
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   // App State
   const [presets, setPresets] = useState<VoicePreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState<string>('');

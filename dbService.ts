@@ -302,6 +302,34 @@ export const dbService = {
   },
 
   /**
+   * Update team name
+   */
+  async updateTeamName(teamId: string, newName: string): Promise<Team> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    const teams = dbService.getTeamsFromStorage();
+    const teamIndex = teams.findIndex(t => t.id === teamId);
+    
+    if (teamIndex === -1) {
+      throw new Error('Team not found');
+    }
+    
+    const cleanName = newName.trim();
+    if (!cleanName) {
+      throw new Error('Team name is required');
+    }
+    
+    teams[teamIndex] = {
+      ...teams[teamIndex],
+      name: cleanName,
+      updatedAt: new Date().toISOString()
+    };
+    
+    dbService.saveTeamsToStorage(teams);
+    return teams[teamIndex];
+  },
+
+  /**
    * Add a member to a team
    */
   async addTeamMember(teamId: string, userId: string, role: TeamRole): Promise<TeamMember> {
