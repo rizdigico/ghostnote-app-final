@@ -111,6 +111,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal }) => {
                 setBaseVoiceId(defaultVoice.id);
                 setReferenceText(defaultVoice.referenceText);
               }
+
+              // Check for pending content from Repurpose flow
+              const pendingContent = localStorage.getItem('pendingStudioContent');
+              if (pendingContent) {
+                setDraftText(pendingContent);
+                localStorage.removeItem('pendingStudioContent');
+              }
             } catch (err) {
               console.error("Failed to load presets", err);
             }

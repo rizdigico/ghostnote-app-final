@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import LandingPage from './components/LandingPage';
-import Login from './components/Login'; // Fixed: Removed /Auth
+import Login from './components/Login';
 import LegalPage from './components/LegalPage';
 import PaymentSuccessPage from './components/PaymentSuccessPage';
 import ErrorBoundary from './components/ErrorBoundary';
+import AppShell from './components/AppShell';
+import StudioPage from './pages/studio';
+import RepurposePage from './pages/repurpose';
+import SocialPage from './pages/social';
+import LibraryPage from './pages/library';
+import TeamPage from './pages/team';
 import { UserPlan } from './types';
-import { AuthProvider, useAuth } from './AuthContext'; // Fixed: Removed /contexts
+import { AuthProvider, useAuth } from './AuthContext';
 
 type ViewState = 'landing' | 'app' | 'login' | 'terms' | 'privacy' | 'payment_success';
 
@@ -14,7 +20,8 @@ const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
   const [previousView, setPreviousView] = useState<ViewState>('landing');
   const [initialPlan, setInitialPlan] = useState<UserPlan>('echo');
-  const { user, isLoading, updatePlan } = useAuth();
+  const [currentPath, setCurrentPath] = useState('/studio');
+  const { user, isLoading, updatePlan, logout } = useAuth();
 
   useEffect(() => {
     const path = window.location.pathname;
@@ -22,12 +29,26 @@ const AppContent: React.FC = () => {
        setCurrentView('payment_success');
        return;
     }
+    
+    // Handle authenticated routes
+    if (path === '/studio' || path === '/repurpose' || path === '/social' || path === '/library' || path === '/team') {
+      setCurrentPath(path);
+      if (user) {
+        setCurrentView('app');
+      }
+    } else if (path !== '/' && path !== '/login') {
+      // Default to studio for unknown paths when logged in
+      if (user) {
+        setCurrentPath('/studio');
+        setCurrentView('app');
+      }
+    }
+    
     const params = new URLSearchParams(window.location.search);
     
     // Handle showLogin param for redirecting to login
     if (params.get('showLogin') === 'true') {
       setCurrentView('login');
-      // Clear the query param
       const plan = params.get('plan');
       const billing = params.get('billing');
       if (plan) {
@@ -46,7 +67,7 @@ const AppContent: React.FC = () => {
     if (planParam && ['echo', 'clone', 'syndicate'].includes(planParam)) {
       // Will be handled by the component
     }
-  }, [updatePlan]);
+  }, [updatePlan, user]);
 
   const handleEnterApp = async (plan: UserPlan = 'echo') => {
     // CRITICAL: Guard against clicking before auth is loaded
@@ -59,6 +80,8 @@ const AppContent: React.FC = () => {
     if (user && plan !== user.plan && plan !== 'echo') {
         await updatePlan(plan);
     }
+    // Navigate to studio by default
+    setCurrentPath('/studio');
     setCurrentView(user ? 'app' : 'login');
   };
 
@@ -77,7 +100,37 @@ const AppContent: React.FC = () => {
   
   const handlePaymentComplete = (planName: string) => {
     window.history.replaceState({}, '', '/');
+    setCurrentPath('/studio');
     setCurrentView('app');
+  };
+
+  const handleNavigate = (path: string) => {
+    setCurrentPath(path);
+    window.history.pushState({}, '', path);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setCurrentView('landing');
+    window.history.pushState({}, '', '/');
+  };
+
+  // Render the appropriate page based on current path
+  const renderPage = () => {
+    switch (currentPath) {
+      case '/studio':
+        return <StudioPage onGoHome={handleGoHome} onViewLegal={navigateToLegal} />;
+      case '/repurpose':
+        return <RepurposePage onNavigate={handleNavigate} />;
+      case '/social':
+        return <SocialPage />;
+      case '/library':
+        return <LibraryPage />;
+      case '/team':
+        return <TeamPage />;
+      default:
+        return <StudioPage onGoHome={handleGoHome} onViewLegal={navigateToLegal} />;
+    }
   };
 
   if (currentView === 'payment_success') {
@@ -100,6 +153,7 @@ const AppContent: React.FC = () => {
               </header>
               <Login 
                 onSuccess={() => {
+                  setCurrentPath('/studio');
                   setCurrentView('app');
                 }}
                 onViewLegal={navigateToLegal}
@@ -110,9 +164,13 @@ const AppContent: React.FC = () => {
 
   if (currentView === 'app' && user) {
     return (
-      <>
-        <Dashboard onGoHome={handleGoHome} onViewLegal={navigateToLegal} />
-      </>
+      <AppShell
+        currentPath={currentPath}
+        onNavigate={handleNavigate}
+        onLogout={handleLogout}
+      >
+        {renderPage()}
+      </AppShell>
     );
   }
 
@@ -134,4 +192,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
