@@ -79,9 +79,14 @@ export default async function handler(req: any, res: any) {
 
     // 3. THE MAGIC SWITCH: Apply Trial ONLY for Clone Plan if Eligible
     // Syndicate plan does NOT get a free trial
-    if (isClonePlan && !hasUsedTrial) {
+    // Note: The webhook will perform additional card fingerprint check
+    const trialRequested = isClonePlan && !hasUsedTrial;
+    
+    if (trialRequested) {
       console.log(`🎁 User ${userId} is eligible for a 14-day trial (Clone Plan).`);
       sessionConfig.subscription_data.trial_period_days = 14;
+      // Add metadata to track that trial was requested (for webhook verification)
+      sessionConfig.subscription_data.metadata.trialRequested = 'true';
     } else if (isClonePlan && hasUsedTrial) {
       console.log(`User ${userId} has already used their trial. Standard billing.`);
     } else {

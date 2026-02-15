@@ -249,6 +249,72 @@ export async function sendPaymentFailedEmail(
   });
 }
 
+// Send trial removal notification (when card was used for previous trial)
+export async function sendTrialRemovalNotification(
+  email: string,
+  name: string,
+  planName: string
+): Promise<SendEmailResult> {
+  return sendEmail({
+    to: email,
+    subject: `Important: Your ${capitalize(planName)} Free Trial was Adjusted`,
+    html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trial Adjustment Notice</title>
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+    <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 30px; border-radius: 12px; text-align: center; margin-bottom: 30px;">
+      <h1 style="color: white; margin: 0; font-size: 28px;">Free Trial Adjusted ⚠️</h1>
+    </div>
+    
+    <p style="font-size: 16px; line-height: 1.6;">Hi ${name},</p>
+    
+    <p style="font-size: 16px; line-height: 1.6;">
+      Thank you for subscribing to GhostNote! We've activated your <strong>${capitalize(planName)}</strong> subscription.
+    </p>
+    
+    <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+      <p style="margin: 0; font-size: 14px; color: #856404;">
+        <strong>Notice:</strong> We detected that your payment method has been used 
+        for a free trial on a previous account. As a result, your subscription has been 
+        activated immediately without the free trial period. You will be charged right away.
+      </p>
+    </div>
+    
+    <p style="font-size: 16px; line-height: 1.6;">
+      You're now ready to enjoy all <strong>${capitalize(planName)}</strong> features including:
+    </p>
+    
+    <ul style="font-size: 16px; line-height: 1.8; color: #333;">
+      <li>Full access to voice cloning</li>
+      <li>Unlimited content generation</li>
+      <li>Team collaboration features</li>
+      <li>Priority support</li>
+    </ul>
+    
+    <p style="font-size: 16px; line-height: 1.6;">
+      If you believe this is an error or have questions, please contact our support team.
+    </p>
+    
+    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+    
+    <p style="font-size: 14px; color: #666; text-align: center;">
+      If you have any questions, reply to this email or contact us at <a href="mailto:rizdigi.co@gmail.com" style="color: #667eea;">rizdigi.co@gmail.com</a>
+    </p>
+    
+    <p style="font-size: 12px; color: #999; text-align: center; margin-top: 30px;">
+      © ${new Date().getFullYear()} GhostNote. All rights reserved.
+    </p>
+  </body>
+</html>
+    `,
+  });
+}
+
 // Helper to capitalize first letter
 function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);

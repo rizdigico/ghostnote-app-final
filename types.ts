@@ -94,6 +94,10 @@ export interface User {
   cancelAtPeriodEnd?: boolean; // True if user scheduled cancellation
   currentPeriodEnd?: string; // ISO timestamp when access ends
   paymentWarning?: boolean; // Payment failure notification flag
+  
+  // Trial abuse prevention fields
+  payment_fingerprint?: string; // Stripe card fingerprint (card_xxx_fingerprint)
+  hasUsedTrial?: boolean; // Whether user has used a free trial
 }
 
 // Team roles

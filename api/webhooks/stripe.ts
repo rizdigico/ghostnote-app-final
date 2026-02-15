@@ -46,6 +46,95 @@ function checkWebhookRateLimit(customerId: string): boolean {
   return true;
 }
 
+// --- TRIAL ABUSE PREVENTION: Card Fingerprinting ---
+
+/**
+ * Retrieves the card fingerprint from Stripe after checkout completion
+ * @param session - The Stripe checkout session
+ * @returns The card fingerprint or null
+ */
+async function getCardFingerprint(session: any): Promise<string | null> {
+  try {
+    // Get the payment method used in the checkout
+    const paymentMethodId = session.payment_method;
+    
+    if (!paymentMethodId) {
+      console.log('No payment method found in session');
+      return null;
+    }
+    
+    // Retrieve the payment method from Stripe
+    const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+    
+    // Extract the card fingerprint
+    const fingerprint = paymentMethod.card?.fingerprint;
+    
+    if (fingerprint) {
+      console.log(`Card fingerprint retrieved: ${fingerprint}`);
+    }
+    return fingerprint || null;
+  } catch (error: any) {
+    console.error('Error retrieving payment method:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Checks if a card fingerprint has been used for a trial before
+ * Queries all users to see if any have used this card for a trial
+ * @param fingerprint - The card fingerprint to check
+ * @returns true if the card has been used for a trial before
+ */
+async function hasCardUsedTrial(fingerprint: string): Promise<boolean> {
+  try {
+    // Query users collection for any user with this fingerprint
+    const snapshot = await db.collection('users')
+      .where('payment_fingerprint', '==', fingerprint)
+      .limit(1)
+      .get();
+    
+    if (snapshot.empty) {
+      return false; // New card, no previous trial
+    }
+    
+    // Check if the user with this fingerprint had a trial
+    const userDoc = snapshot.docs[0];
+    const userData = userDoc.data();
+    
+    // Consider it a "used trial" if the user has used a trial before
+    // We check hasUsedTrial flag which is set when trial is successfully used
+    const hasUsedTrial = userData.hasUsedTrial === true;
+    
+    console.log(`Card ${fingerprint} found in user ${userDoc.id}, hasUsedTrial: ${hasUsedTrial}`);
+    return hasUsedTrial;
+  } catch (error: any) {
+    console.error('Error checking fingerprint:', error.message);
+    // Default to "used" for security (fail closed)
+    return true;
+  }
+}
+
+/**
+ * Removes the trial period from a subscription so user is charged immediately
+ * @param subscriptionId - The Stripe subscription ID
+ */
+async function removeTrialFromSubscription(subscriptionId: string): Promise<boolean> {
+  try {
+    // Update the subscription to remove trial period
+    // Use any type to bypass TypeScript strict checking for this Stripe feature
+    await stripe.subscriptions.update(subscriptionId, {
+      trial_period_days: 0,
+      proration_behavior: 'create_prorations'
+    } as any);
+    
+    console.log(`Trial removed from subscription ${subscriptionId}`);
+    return true;
+  } catch (error: any) {
+    console.error('Error removing trial from subscription:', error.message);
+    return false;
+  }
+}
+
 // This prevents Next.js from messing up the "Signature" check
 export const config = {
   api: {
@@ -148,6 +237,53 @@ export default async function handler(req: any, res: any) {
             return res.status(404).send('User not found');
         }
 
+        // --- TRIAL ABUSE PREVENTION: Card Fingerprint Check ---
+        let paymentFingerprint: string | null = null;
+        let trialEligibility = 'eligible'; // 'eligible', 'ineligible', 'error'
+        let trialWasRemoved = false;
+
+        // Only check fingerprint for Clone plan with trial requested
+        const trialRequested = session.subscription_data?.metadata?.trialRequested === 'true' || 
+                              session.metadata?.trialRequested === 'true';
+        
+        if (planName === 'clone' && trialRequested) {
+            console.log(`🔍 Checking card fingerprint for trial eligibility (User: ${userId})`);
+            
+            // Get the card fingerprint from Stripe
+            paymentFingerprint = await getCardFingerprint(session);
+            
+            if (paymentFingerprint) {
+                // Check if this card has been used for a trial before
+                const hasUsed = await hasCardUsedTrial(paymentFingerprint);
+                
+                if (hasUsed) {
+                    trialEligibility = 'ineligible';
+                    console.log(`⚠️ Card fingerprint ${paymentFingerprint.substring(0, 10)}... has been used for a trial before. Removing trial.`);
+                    
+                    // Remove the trial from the subscription
+                    const subscriptionId = session.subscription;
+                    if (subscriptionId) {
+                        trialWasRemoved = await removeTrialFromSubscription(subscriptionId);
+                    }
+                } else {
+                    trialEligibility = 'eligible';
+                    console.log(`✅ Card fingerprint ${paymentFingerprint.substring(0, 10)}... is new. Trial allowed.`);
+                }
+            } else {
+                // Could not retrieve fingerprint - fail closed (no trial)
+                trialEligibility = 'error';
+                console.error('Could not retrieve card fingerprint, failing closed - removing trial');
+                
+                // Remove trial as safety measure
+                const subscriptionId = session.subscription;
+                if (subscriptionId) {
+                    trialWasRemoved = await removeTrialFromSubscription(subscriptionId);
+                }
+            }
+        } else {
+            console.log(`ℹ️ Trial check skipped - Plan: ${planName}, Trial requested: ${trialRequested}`);
+        }
+
         let finalApiKey = userData?.apiKey;
         if (!finalApiKey) {
             // Generate secure API key
@@ -172,11 +308,22 @@ export default async function handler(req: any, res: any) {
             cancelAtPeriodEnd: false,
             paymentWarning: false,
             
-            // MARK TRIAL AS USED (only for Clone plan first purchase)
-            ...(planName === 'clone' && !userData?.hasUsedTrial ? { hasUsedTrial: true } : {})
+            // TRIAL ABUSE PREVENTION: Save payment fingerprint
+            payment_fingerprint: paymentFingerprint,
+            
+            // MARK TRIAL AS USED (only for Clone plan with eligible trial)
+            // If trial was removed due to card reuse, still mark as used to prevent future abuse
+            ...(planName === 'clone' && (trialEligibility === 'eligible' || trialEligibility === 'ineligible') 
+                ? { hasUsedTrial: true } 
+                : {})
         });
         
-        console.log(`✅ User ${userId} unlocked ${planName} plan (${billingCycle}) with ${creditsAmount} credits.`);
+        // Log trial removal for monitoring
+        if (trialWasRemoved) {
+            console.log(`📧 Trial removed for user ${userId} - card was used for previous trial`);
+        }
+        
+        console.log(`✅ User ${userId} unlocked ${planName} plan (${billingCycle}) with ${creditsAmount} credits. Trial eligibility: ${trialEligibility}`);
     }
   }
 
