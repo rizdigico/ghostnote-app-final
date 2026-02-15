@@ -88,7 +88,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ isOpen, onClose, onSelectPl
       price: '$0',
       period: 'Forever',
       icon: <Ghost className="w-6 h-6" />,
-      features: ['5 Credits / Day', '2 Custom Voice Presets', 'Text Input Only', 'Standard Speed'],
+      features: ['10 Credits / Day', '2 Custom Voice Presets', 'Text Input Only', 'Standard Speed'],
       disabled: ['File Upload (Brand DNA)', 'Tone Intensity Slider', 'Bulk CSV Processing'],
       color: 'border-border',
       btnColor: 'bg-surface hover:bg-border'

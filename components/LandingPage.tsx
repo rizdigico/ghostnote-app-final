@@ -717,7 +717,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnterApp, onViewLegal, isLo
                   <h3 className="text-xl font-bold mb-2">The Echo</h3>
                   <div className="text-3xl font-bold mb-6">$0 <span className="text-sm font-normal text-textMuted">/ forever</span></div>
                   <ul className="space-y-3 mb-8 flex-1">
-                     {['5 Credits / Day', 'Text Input Only', 'Standard Speed'].map((f, i) => (
+                     {['10 Credits / Day', 'Text Input Only', 'Standard Speed'].map((f, i) => (
                         <li key={i} className="flex gap-3 text-sm"><Check size={16} className="text-textMuted" /> {f}</li>
                      ))}
                   </ul>
