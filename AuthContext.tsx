@@ -13,6 +13,7 @@ import {
   onAuthStateChanged,
   deleteUser,
   reauthenticateWithPopup,
+  getIdToken,
   type AuthError,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -378,22 +379,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     setIsLoading(true);
     setAuthError(null);
+    let apiResponse: Response | null = null;
     
     try {
-      console.log('⚡ Starting optimistic account deletion (no forced popup)...');
+      console.log('⚡ Starting safe account deletion (via API)...');
       
-      // Step 1: Delete Database Data (Silent)
-      if (user) {
-        console.log('🗑️ Deleting Firestore user document...');
-        await deleteDoc(doc(db, 'users', auth.currentUser!.uid));
+      // Get the current user's ID token for authentication
+      const idToken = await auth.currentUser.getIdToken();
+      
+      // Call the safe delete API which handles subscription cancellation first
+      apiResponse = await fetch('/api/user/delete-account', {
+        method: 'DELETE', // or 'POST' - both are supported
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ userId: auth.currentUser.uid })
+      });
+      
+      const data = await apiResponse.json();
+      
+      if (!apiResponse.ok) {
+        // API returned an error - likely Stripe cancellation failed
+        throw new Error(data.error?.message || 'Failed to delete account');
       }
-
-      // Step 2: Delete Auth Account (Silent)
-      console.log('🚀 Deleting Firebase Auth user...');
-      await deleteUser(auth.currentUser!);
-
-      // Step 3: Redirect immediately
-      console.log('✅ Account deletion complete - redirecting to home');
+      
+      console.log('✅ Account deletion successful:', data.message);
+      
+      // Clear user state and redirect
       setUser(null);
       setAuthError(null);
       window.location.href = '/';
@@ -401,8 +414,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch (error: any) {
       console.error("Delete failed", error);
 
-      // Step 4: ONLY show popup if the session is too old
-      if (error.code === 'auth/requires-recent-login') {
+      // If the API call failed due to auth issues, try re-authentication
+      if (apiResponse?.status === 401) {
         console.log('🔐 Session expired - attempting re-authentication...');
         try {
           const provider = new GoogleAuthProvider();
@@ -410,8 +423,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           // Retry delete after popup
           console.log('🔄 Retrying account deletion after re-auth...');
-          await deleteDoc(doc(db, 'users', auth.currentUser!.uid));
-          await deleteUser(auth.currentUser!);
+          const retryIdToken = await auth.currentUser.getIdToken();
+          const retryResponse = await fetch('/api/user/delete-account', {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${retryIdToken}`
+            },
+            body: JSON.stringify({ userId: auth.currentUser!.uid })
+          });
+          
+          const retryData = await retryResponse.json();
+          
+          if (!retryResponse.ok) {
+            throw new Error(retryData.error?.message || 'Failed to delete account after re-auth');
+          }
           
           setUser(null);
           setAuthError(null);
@@ -422,7 +448,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setAuthError('Could not verify account. Please log out and log in again.');
         }
       } else {
-        setAuthError(`Deletion failed: ${error.message || 'Unknown error'}`);
+        setAuthError(error.message || 'Deletion failed. Your subscription may still be active.');
       }
     } finally {
       setIsLoading(false);

@@ -1,10 +1,12 @@
 // api/billing/cancel-subscription.ts
 // PHASE 1: Graceful Exit - Cancel at end of billing period
+// SECURED: Requires Firebase ID token authentication
 
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 import { sendCancellationEmail, formatDate } from '../lib/emailService';
+import { requireAuth, validateUserAccess } from '../lib/verifyAuthToken';
 
 // Setup Firebase Admin
 if (!getApps().length) {
@@ -48,7 +50,18 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: { code: 'METHOD_NOT_ALLOWED', message: 'Only POST allowed' } });
   }
 
+  // SECURITY: Verify Firebase ID token
+  const tokenUserId = await requireAuth(req);
+  if (!tokenUserId) {
+    return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required. Please log in.' } });
+  }
+
   const { userId } = req.body;
+
+  // SECURITY: Validate that the authenticated user is modifying their own subscription
+  if (!validateUserAccess(tokenUserId, userId)) {
+    return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You can only modify your own subscription.' } });
+  }
 
   // Validate input
   if (!userId || typeof userId !== 'string') {
@@ -67,8 +80,8 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // 1. Fetch user from Firestore
-    const userRef = db.collection('users').doc(userId);
+    // 1. Fetch user from Firestore (use tokenUserId as source of truth)
+    const userRef = db.collection('users').doc(tokenUserId);
     const userSnap = await userRef.get();
     
     if (!userSnap.exists) {
