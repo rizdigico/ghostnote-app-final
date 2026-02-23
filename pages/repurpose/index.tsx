@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Video, FileText, Sparkles, ArrowRight, Loader2, Upload, X } from 'lucide-react';
+import { Mic, Video, FileText, Sparkles, ArrowRight, Loader2, Upload, X, AlertCircle } from 'lucide-react';
 import VoiceRecorder from '../../components/VoiceRecorder';
+import { auth } from '../../src/lib/firebase';
 
 interface RepurposePageProps {
   onNavigate: (path: string) => void;
@@ -13,6 +14,7 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
   const [textInput, setTextInput] = useState('');
   const [processingType, setProcessingType] = useState<ProcessingType>('idle');
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const handleVoiceTranscriptionComplete = (text: string) => {
@@ -43,6 +45,7 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
 
     setVideoFile(file);
     setProcessingType('video');
+    setError(null);
 
     try {
       // Create form data and send to transcription API
@@ -50,12 +53,12 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
       formData.append('file', file);
 
       // Get Firebase ID token for authentication
-      const idToken = await (window as any).firebase.auth().currentUser?.getIdToken();
+      const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) {
         throw new Error('Authentication required. Please log in again.');
       }
 
-      // Call the transcription API
+      // Call the Whisper transcription API
       const response = await fetch('/api/repurpose/transcribe', {
         method: 'POST',
         headers: {
@@ -67,24 +70,15 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
       const data = await response.json();
 
       if (response.ok && data.text) {
-        // Success - store transcription and navigate to Studio
+        // Success — store real transcription and navigate to Studio
         localStorage.setItem('pendingStudioContent', data.text);
         onNavigate('/studio');
       } else {
-        // Fallback: use mock transcription if API fails
-        const mockTranscription = `This is a sample transcription from your video: "${file.name}".\n\nIn production, this would be the actual transcribed text extracted from the video's audio track using a speech-to-text service like Whisper API.\n\nThe system would then analyze the speaking style, tone, and vocabulary to help you refine and rewrite this content in your unique voice.`;
-        
-        localStorage.setItem('pendingStudioContent', mockTranscription);
-        onNavigate('/studio');
+        throw new Error(data.error || 'Transcription failed. Please try again.');
       }
-    } catch (error) {
-      console.error('Video processing error:', error);
-      
-      // Fallback: use mock transcription if API fails
-      const mockTranscription = `This is a sample transcription from your video: "${file.name}".\n\nIn production, this would be the actual transcribed text extracted from the video's audio track using a speech-to-text service like Whisper API.\n\nThe system would then analyze the speaking style, tone, and vocabulary to help you refine and rewrite this content in your unique voice.`;
-      
-      localStorage.setItem('pendingStudioContent', mockTranscription);
-      onNavigate('/studio');
+    } catch (err) {
+      console.error('Video processing error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to transcribe video. Please try again.');
     } finally {
       setProcessingType('idle');
       setVideoFile(null);
