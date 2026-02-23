@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, X, Upload, Loader2, Sparkles, Play, Pause, Check } from 'lucide-react';
 import Button from './Button';
+import { auth } from '../src/lib/firebase';
 
 type RecorderState = 'idle' | 'recording' | 'processing' | 'complete';
 
@@ -78,8 +79,17 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       const formData = new FormData();
       formData.append('file', audioFile, fileName || 'recording.webm');
 
+      // Get Firebase ID token for authentication
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
       const response = await fetch('/api/repurpose/transcribe', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+        },
         body: formData,
       });
 

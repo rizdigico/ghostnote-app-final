@@ -49,9 +49,18 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
       const formData = new FormData();
       formData.append('file', file);
 
+      // Get Firebase ID token for authentication
+      const idToken = await (window as any).firebase.auth().currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
       // Call the transcription API
       const response = await fetch('/api/repurpose/transcribe', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${idToken}`,
+        },
         body: formData,
       });
 

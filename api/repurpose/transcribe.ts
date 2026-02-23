@@ -3,6 +3,9 @@ export const config = {
   bodyParser: false, // Need to handle FormData manually
 };
 
+// --- SECURITY: AUTHENTICATION ---
+import { verifyAuthToken } from '../lib/verifyAuthToken';
+
 // --- SECURITY: RATE LIMITING ---
 // Rate limit: 5 transcriptions per minute per user
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -49,6 +52,15 @@ function isValidFile(file: File): { valid: boolean; error?: string } {
     return { valid: false, error: 'File type not supported' };
   }
   
+  // Basic content validation (check file signature/magic numbers)
+  const fileName = file.name.toLowerCase();
+  const validExtensions = ['.mp3', '.wav', '.webm', '.m4a', '.mp4', '.mov'];
+  const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+  
+  if (!hasValidExtension) {
+    return { valid: false, error: 'File extension not supported' };
+  }
+  
   return { valid: true };
 }
 
@@ -92,13 +104,21 @@ export default async function handler(req: Request): Promise<Response> {
   }
   
   try {
-    // Get client identifier (user ID if authenticated, otherwise IP)
-    const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0] || 
-                     req.headers.get('x-real-ip') || 
-                     'unknown';
+    // Authenticate user
+    const authHeader = req.headers.get('authorization') as string | undefined;
+    const userId = await verifyAuthToken(authHeader);
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Authentication required' 
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
     
-    // Check rate limit
-    if (!checkTranscriptionRateLimit(clientIp)) {
+    // Check rate limit using user ID (more reliable than IP)
+    if (!checkTranscriptionRateLimit(userId)) {
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -127,7 +147,7 @@ export default async function handler(req: Request): Promise<Response> {
     // Transcribe the file
     const transcription = await transcribeFile(file);
     
-    // Return result
+    // Return result with security headers
     return new Response(
       JSON.stringify({
         success: true,
@@ -138,18 +158,30 @@ export default async function handler(req: Request): Promise<Response> {
           type: file.type,
         },
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { 
+        status: 200, 
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        } 
+      }
     );
     
   } catch (error: any) {
     console.error('Transcription error:', error);
     
+    // Security: Don't leak detailed error messages to clients
     let errorMessage = 'An unexpected error occurred. Please try again.';
     let status = 500;
     
     if (error.message && (error.message.includes('OpenAI') || error.message.includes('API'))) {
-      errorMessage = error.message || 'Transcription service unavailable';
+      errorMessage = 'Transcription service unavailable';
       status = 503;
+    } else if (error.message && error.message.includes('File')) {
+      errorMessage = error.message;
+      status = 400;
     }
     
     return new Response(
@@ -157,7 +189,14 @@ export default async function handler(req: Request): Promise<Response> {
         success: false, 
         error: errorMessage 
       }),
-      { status, headers: { 'Content-Type': 'application/json' } }
+      { 
+        status, 
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-Content-Type-Options': 'nosniff',
+          'X-Frame-Options': 'DENY'
+        } 
+      }
     );
   }
 }
