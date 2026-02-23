@@ -73,12 +73,41 @@ const TeamSettingsModal: React.FC<TeamSettingsModalProps> = ({ isOpen, onClose }
     setInviteError('');
 
     try {
-      const inviteLink = `${window.location.origin}/invite?team=${team.id}&email=${encodeURIComponent(inviteEmail)}&role=${inviteRole}`;
-      await navigator.clipboard.writeText(inviteLink);
+      // Validate role
+      const validRoles = ['admin', 'member'];
+      if (!validRoles.includes(inviteRole)) {
+        throw new Error('Invalid role');
+      }
+
+      // Get Firebase ID token
+      const idToken = await (window as any).firebase.auth().currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error('Failed to get authentication token');
+      }
+
+      const response = await fetch('/api/team/create-invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ 
+          teamId: team.id, 
+          role: inviteRole 
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to create invite');
+      }
+
+      await navigator.clipboard.writeText(data.inviteUrl);
       setCopiedInviteLink(true);
       setTimeout(() => setCopiedInviteLink(false), 3000);
-    } catch (error) {
-      setInviteError('Failed to create invite');
+    } catch (error: any) {
+      setInviteError(error.message || 'Failed to create invite');
     } finally {
       setIsInviting(false);
     }

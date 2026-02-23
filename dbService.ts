@@ -1,4 +1,4 @@
-import { User, UserPlan, VoicePreset, Team, TeamMember, TeamRole, TeamSettings } from './types';
+import { User, UserPlan, VoicePreset, Team, TeamMember, TeamRole, TeamSettings, Invite } from './types';
 import { VOICE_PRESETS, SYSTEM_PRESETS } from './constants';
 
 // --- MOCK DATABASE CONFIGURATION ---
@@ -8,6 +8,7 @@ const STORAGE_KEY_USER = 'ghostnote_user_session';
 const STORAGE_KEY_CUSTOM_VOICES = 'ghostnote_custom_voices';
 const STORAGE_KEY_TEAMS = 'ghostnote_teams';
 const STORAGE_KEY_TEAM_MEMBERS = 'ghostnote_team_members';
+const STORAGE_KEY_INVITES = 'ghostnote_invites';
 
 export const dbService = {
   // --- AUTHENTICATION ---
@@ -552,8 +553,8 @@ export const dbService = {
   },
 
   /**
-   * Get user by ID (helper for team creation)
-   */
+    * Get user by ID (helper for team creation)
+    */
   async getUserById(userId: string): Promise<User | null> {
     const savedSession = localStorage.getItem(STORAGE_KEY_USER);
     if (savedSession) {
@@ -561,5 +562,141 @@ export const dbService = {
       if (user.id === userId) return user;
     }
     return null;
+  },
+
+  // ============ INVITE OPERATIONS ============
+
+  /**
+   * Create a new team invitation
+   */
+  async createInvite(teamId: string, role: TeamRole, createdBy: string): Promise<Invite> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    // Generate cryptographically secure token
+    const token = 'invite_' + crypto.randomUUID();
+    
+    // Set expiration to 7 days from now
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    
+    const invite: Invite = {
+      id: 'invite_' + crypto.randomUUID(),
+      token,
+      teamId,
+      role,
+      expiresAt: expiresAt.toISOString(),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      createdBy
+    };
+    
+    const invites = dbService.getInvitesFromStorage();
+    invites.push(invite);
+    dbService.saveInvitesToStorage(invites);
+    
+    return invite;
+  },
+
+  /**
+   * Get invite by token
+   */
+  async getInviteByToken(token: string): Promise<Invite | null> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    
+    const invites = dbService.getInvitesFromStorage();
+    const inviteIndex = invites.findIndex(i => i.token === token);
+    
+    if (inviteIndex === -1) {
+      return null;
+    }
+    
+    const invite = invites[inviteIndex];
+    
+    // Check if expired
+    if (new Date(invite.expiresAt) < new Date() && invite.status === 'pending') {
+      invite.status = 'expired';
+      dbService.saveInvitesToStorage(invites);
+    }
+    
+    return invite;
+  },
+
+  /**
+   * Accept an invitation
+   */
+  async acceptInvite(token: string, userId: string): Promise<Invite> {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    const invites = dbService.getInvitesFromStorage();
+    const inviteIndex = invites.findIndex(i => i.token === token);
+    
+    if (inviteIndex === -1) {
+      throw new Error('Invite not found');
+    }
+    
+    const invite = invites[inviteIndex];
+    
+    if (invite.status !== 'pending') {
+      throw new Error('Invite is no longer valid');
+    }
+    
+    if (new Date(invite.expiresAt) < new Date()) {
+      invite.status = 'expired';
+      dbService.saveInvitesToStorage(invites);
+      throw new Error('Invite has expired');
+    }
+    
+    // Check if user is already a member
+    const members = dbService.getTeamMembersFromStorage();
+    const existingMember = members.find(m => m.teamId === invite.teamId && m.userId === userId);
+    if (existingMember) {
+      throw new Error('User is already a member of this team');
+    }
+    
+    // Mark as accepted
+    invite.status = 'accepted';
+    dbService.saveInvitesToStorage(invites);
+    
+    // Add user to team
+    await dbService.addTeamMember(invite.teamId, userId, invite.role);
+    
+    return invite;
+  },
+
+  /**
+   * Get all invites for a team
+   */
+  async getTeamInvites(teamId: string): Promise<Invite[]> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    
+    const invites = dbService.getInvitesFromStorage();
+    return invites.filter(i => i.teamId === teamId);
+  },
+
+  /**
+   * Delete an invite
+   */
+  async deleteInvite(inviteId: string): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    
+    const invites = dbService.getInvitesFromStorage();
+    const filtered = invites.filter(i => i.id !== inviteId);
+    dbService.saveInvitesToStorage(filtered);
+  },
+
+  // ============ STORAGE HELPERS ============
+
+  getInvitesFromStorage(): Invite[] {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_INVITES);
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.warn('Error reading invites from storage:', e);
+      return [];
+    }
+  },
+
+  saveInvitesToStorage(invites: Invite[]): void {
+    localStorage.setItem(STORAGE_KEY_INVITES, JSON.stringify(invites));
   }
 };

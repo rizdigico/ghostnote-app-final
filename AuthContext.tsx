@@ -222,13 +222,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           }
           
           // Subscribe to real-time updates from Firestore
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
+           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const unsubscribeSnapshot = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
               const userData = docSnap.data() as User;
               setUser(userData);
               // Load team data when user is loaded
               loadTeamData(userData.id);
+              
+              // Check if there's a pending invite token
+              const pendingInviteToken = localStorage.getItem('pendingInviteToken');
+              if (pendingInviteToken) {
+                console.log('Pending invite token found, attempting to join team');
+                handlePendingInvite(pendingInviteToken, userData.id);
+              }
             }
             setIsLoading(false);
             setAuthError(null);
@@ -468,6 +475,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       throw e;
     }
   }
+
+  const handlePendingInvite = async (token: string, userId: string) => {
+    try {
+      // Get Firebase ID token
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error('Failed to get authentication token');
+      }
+
+      const response = await fetch('/api/team/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ token })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to join team');
+      }
+
+      // Success - clear token
+      localStorage.removeItem('pendingInviteToken');
+      
+      // Refresh team data
+      await loadTeamData(userId);
+      
+      console.log(`Successfully joined team as ${data.role}`);
+      
+    } catch (error: any) {
+      console.error('Failed to handle pending invite:', error);
+      // Clear token to prevent repeated attempts
+      localStorage.removeItem('pendingInviteToken');
+      
+      // Show error message to user
+      setAuthError(error.message || 'Failed to join team');
+    }
+  };
 
   // ============ SUBSCRIPTION LIFECYCLE FUNCTIONS ============
 

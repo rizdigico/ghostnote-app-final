@@ -144,3 +144,15 @@ export enum RewriteStatus {
   SUCCESS = 'SUCCESS',
   ERROR = 'ERROR',
 }
+
+// Invite interface
+export interface Invite {
+  id: string;
+  token: string;
+  teamId: string;
+  role: TeamRole;
+  expiresAt: string;
+  status: 'pending' | 'accepted' | 'expired';
+  createdAt: string;
+  createdBy: string;
+}

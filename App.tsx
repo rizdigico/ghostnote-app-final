@@ -11,10 +11,11 @@ import RepurposePage from './pages/repurpose';
 import SocialPage from './pages/social';
 import LibraryPage from './pages/library';
 import TeamPage from './pages/team';
+import InvitePage from './pages/invite/[token]';
 import { UserPlan } from './types';
 import { AuthProvider, useAuth } from './AuthContext';
 
-type ViewState = 'landing' | 'app' | 'login' | 'terms' | 'privacy' | 'payment_success';
+type ViewState = 'landing' | 'app' | 'login' | 'terms' | 'privacy' | 'payment_success' | 'invite';
 
 const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('landing');
@@ -28,6 +29,13 @@ const AppContent: React.FC = () => {
     if (path === '/payment-success') {
        setCurrentView('payment_success');
        return;
+    }
+
+    // Handle invite route
+    const inviteMatch = path.match(/^\/invite\/([a-zA-Z0-9_-]+)$/);
+    if (inviteMatch) {
+      setCurrentView('invite');
+      return;
     }
     
     // Handle authenticated routes
@@ -132,6 +140,12 @@ const AppContent: React.FC = () => {
         return <StudioPage onGoHome={handleGoHome} onViewLegal={navigateToLegal} />;
     }
   };
+
+  if (currentView === 'invite') {
+    const path = window.location.pathname;
+    const token = path.match(/^\/invite\/([a-zA-Z0-9_-]+)$/)?.[1];
+    return <InvitePage token={token || ''} />;
+  }
 
   if (currentView === 'payment_success') {
       return <PaymentSuccessPage onComplete={handlePaymentComplete} onOpenLoginModal={() => setCurrentView('login')} />;
