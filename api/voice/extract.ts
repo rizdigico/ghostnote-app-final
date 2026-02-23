@@ -217,9 +217,10 @@ export default async function handler(req: Request): Promise<Response> {
     } else if (error.message.includes('No valid extraction source')) {
       status = 400;
       errorMessage = error.message;
-    } else if (error.message.includes('Failed to scrape URL')) {
+    } else if (error.message.includes('Failed to scrape URL') || error.message.includes('All scraping methods failed')) {
       status = 400;
-      errorMessage = error.message;
+      // Provide user-friendly error message with alternative options
+      errorMessage = 'Failed to extract content from URL. The site may be blocking scraping, or the content may be too short. Try pasting the text directly instead.';
     } else if (error.message.includes('Rate limit')) {
       status = 429;
       errorMessage = error.message;
