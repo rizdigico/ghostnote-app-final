@@ -118,17 +118,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [redirectProcessed, setRedirectProcessed] = useState(false);
 
   // Function to load team data for a user
-  const loadTeamData = async (userId: string) => {
+  const loadTeamData = async (userId: string, teamId?: string) => {
     try {
-      // Get or create team for user (lazy creation)
-      const userTeam = await dbService.getOrCreateUserTeam(userId);
-      setTeam(userTeam);
+      let targetTeam: Team | null;
+      
+      if (teamId) {
+        // Load specific team if ID is provided
+        targetTeam = await dbService.getTeam(teamId);
+        if (!targetTeam) {
+          console.warn('[AuthContext] Team not found, falling back to user\'s team');
+          targetTeam = await dbService.getOrCreateUserTeam(userId);
+        }
+      } else {
+        // Get or create team for user (lazy creation)
+        targetTeam = await dbService.getOrCreateUserTeam(userId);
+      }
+      
+      setTeam(targetTeam);
       
       // Load team members
-      const members = await dbService.getTeamMembers(userTeam.id);
+      const members = await dbService.getTeamMembers(targetTeam.id);
       setTeamMembers(members);
       
-      console.log('[AuthContext] Team loaded:', userTeam.id);
+      console.log('[AuthContext] Team loaded:', targetTeam.id);
     } catch (error) {
       console.error('[AuthContext] Failed to load team data:', error);
     }
@@ -228,7 +240,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               const userData = docSnap.data() as User;
               setUser(userData);
               // Load team data when user is loaded
-              loadTeamData(userData.id);
+              const activeTeamId = localStorage.getItem('activeTeamId') || undefined;
+              loadTeamData(userData.id, activeTeamId);
               
               // Check if there's a pending invite token
               const pendingInviteToken = localStorage.getItem('pendingInviteToken');
@@ -502,8 +515,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Success - clear token
       localStorage.removeItem('pendingInviteToken');
       
-      // Refresh team data
-      await loadTeamData(userId);
+      // Refresh team data with the new team ID
+      await loadTeamData(userId, data.teamId);
       
       console.log(`Successfully joined team as ${data.role}`);
       

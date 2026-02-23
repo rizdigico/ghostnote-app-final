@@ -62,7 +62,11 @@ const InvitePage: React.FC<InvitePageProps> = ({ token }) => {
 
       // Success - clear token and redirect to studio
       localStorage.removeItem('pendingInviteToken');
-      // Use window.location.href instead of reload for cleaner navigation
+      
+      // Store the new team ID in localStorage so we can load it after redirect
+      localStorage.setItem('activeTeamId', data.teamId);
+      
+      // Redirect to studio
       window.location.href = '/studio';
     } catch (err: any) {
       setError(err.message || 'Failed to join team');
