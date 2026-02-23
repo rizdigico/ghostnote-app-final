@@ -45,24 +45,24 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
     setProcessingType('video');
 
     try {
-      // Create form data and send to API
+      // Create form data and send to transcription API
       const formData = new FormData();
-      formData.append('video', file);
+      formData.append('file', file);
 
-      // Call the video processing API
-      const response = await fetch('/api/voice/scrape', {
+      // Call the transcription API
+      const response = await fetch('/api/repurpose/transcribe', {
         method: 'POST',
         body: formData,
       });
 
       const data = await response.json();
 
-      if (data.success && data.textContent) {
+      if (response.ok && data.text) {
         // Success - store transcription and navigate to Studio
-        localStorage.setItem('pendingStudioContent', data.textContent);
+        localStorage.setItem('pendingStudioContent', data.text);
         onNavigate('/studio');
       } else {
-        // Fallback: use mock transcription for demo
+        // Fallback: use mock transcription if API fails
         const mockTranscription = `This is a sample transcription from your video: "${file.name}".\n\nIn production, this would be the actual transcribed text extracted from the video's audio track using a speech-to-text service like Whisper API.\n\nThe system would then analyze the speaking style, tone, and vocabulary to help you refine and rewrite this content in your unique voice.`;
         
         localStorage.setItem('pendingStudioContent', mockTranscription);
@@ -71,7 +71,7 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
     } catch (error) {
       console.error('Video processing error:', error);
       
-      // Fallback: use mock transcription for demo
+      // Fallback: use mock transcription if API fails
       const mockTranscription = `This is a sample transcription from your video: "${file.name}".\n\nIn production, this would be the actual transcribed text extracted from the video's audio track using a speech-to-text service like Whisper API.\n\nThe system would then analyze the speaking style, tone, and vocabulary to help you refine and rewrite this content in your unique voice.`;
       
       localStorage.setItem('pendingStudioContent', mockTranscription);

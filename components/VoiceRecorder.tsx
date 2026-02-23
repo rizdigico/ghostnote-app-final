@@ -73,6 +73,31 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
   };
 
+  const transcribeAudio = async (audioFile: Blob, fileName?: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', audioFile, fileName || 'recording.webm');
+
+      const response = await fetch('/api/repurpose/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to transcribe audio');
+      }
+
+      return data.text;
+    } catch (err) {
+      console.error('Transcription error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to transcribe audio');
+      setState('idle');
+      return null;
+    }
+  };
+
   const stopRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
@@ -82,28 +107,33 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       timerRef.current = null;
     }
     setState('processing');
-    
-    // Simulate transcription (mock for V1)
-    setTimeout(() => {
-      // Mock transcription - in production, send to Whisper API
-      const mockTranscription = "This is a sample transcription of your voice memo. In production, this would be the actual transcribed text from your recording. The system would analyze your speaking style, tone, and cadence to create a unique voice profile.";
-      setTranscribedText(mockTranscription);
-      setState('complete');
-    }, 2000);
   };
+
+  // Handle recording stop and start transcription
+  useEffect(() => {
+    const processRecording = async () => {
+      if (state === 'processing' && audioBlob) {
+        const transcription = await transcribeAudio(audioBlob, 'recording.webm');
+        if (transcription) {
+          setTranscribedText(transcription);
+          setState('complete');
+        }
+      }
+    };
+
+    processRecording();
+  }, [state, audioBlob]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setState('processing');
-    
-    // Simulate transcription
-    setTimeout(() => {
-      const mockTranscription = `Transcribed content from: ${file.name}\n\nThis is a sample transcription. In production, the audio file would be sent to a transcription service like Whisper API.`;
-      setTranscribedText(mockTranscription);
+    const transcription = await transcribeAudio(file, file.name);
+    if (transcription) {
+      setTranscribedText(transcription);
       setState('complete');
-    }, 2000);
+    }
   };
 
   const handleSendToStudio = () => {
