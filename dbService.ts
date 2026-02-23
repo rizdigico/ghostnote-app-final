@@ -156,6 +156,14 @@ export const dbService = {
     return [...SYSTEM_PRESETS, ...VOICE_PRESETS, ...userVoices];
   },
 
+  async getVoicePresetById(userId: string, presetId: string): Promise<VoicePreset | null> {
+    // Get all accessible presets for the user
+    const allPresets = await this.getVoicePresets(userId);
+    
+    // Find preset by ID
+    return allPresets.find(preset => preset.id === presetId) || null;
+  },
+
   async saveVoicePreset(userId: string, name: string, referenceText: string): Promise<VoicePreset> {
     await new Promise((resolve) => setTimeout(resolve, 600));
 

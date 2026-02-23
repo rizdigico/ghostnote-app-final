@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Database, Link, FileText, Upload, Sparkles, Trash2, Loader2, AlertCircle, Check, X, ArrowRight, Plus } from 'lucide-react';
 import { useAuth } from '../../AuthContext';
 import { dbService } from '../../dbService';
+import { auth } from '../../src/lib/firebase';
+import { DnaPreviewModal } from '../../components/DnaPreviewModal';
 import type { VoicePreset } from '../../types';
 
 interface LibraryPageProps {
@@ -30,7 +32,7 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onNavigate }) => {
     textContent: string;
     sourceTitle: string;
     sourceUrl: string;
-    tone?: string;
+    analysis?: any;
   } | null>(null);
   const [presetName, setPresetName] = useState('');
   const [presetIntensity, setPresetIntensity] = useState(50);
@@ -76,48 +78,124 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onNavigate }) => {
     setError(null);
 
     try {
-      const response = await fetch('/api/voice/scrape', {
+      // Get Firebase ID token for authentication
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error('Failed to get authentication token');
+      }
+
+      // Extract text from URL
+      const extractResponse = await fetch('/api/voice/extract', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
         body: JSON.stringify({ url: targetUrl }),
       });
 
-      const data = await response.json();
+      const extractData = await extractResponse.json();
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to scrape URL');
+      if (!extractData.success) {
+        throw new Error(extractData.error || 'Failed to extract text from URL');
+      }
+
+      // Analyze extracted text
+      const analyzeResponse = await fetch('/api/voice/analyze', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ text: extractData.data.text }),
+      });
+
+      const analyzeData = await analyzeResponse.json();
+
+      if (!analyzeData.success) {
+        throw new Error(analyzeData.error || 'Failed to analyze voice');
       }
 
       // Show DNA preview modal
       setAnalyzedData({
-        textContent: data.textContent,
-        sourceTitle: data.sourceTitle,
-        sourceUrl: data.sourceUrl,
+        textContent: extractData.data.text,
+        sourceTitle: targetUrl.split('/').slice(-1)[0] || 'Web Content',
+        sourceUrl: targetUrl,
+        analysis: analyzeData.data,
       });
-      setPresetName(data.sourceTitle || '');
+      setPresetName(targetUrl.split('/').slice(-1)[0] || 'Web Content');
       setShowDnaModal(true);
 
     } catch (err: any) {
-      setError(err.message || 'Failed to scrape URL');
+      setError(err.message || 'Failed to process URL');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleTextAnalyze = () => {
+  const handleTextAnalyze = async () => {
     if (!textInput.trim()) {
       setError('Please enter some text to analyze');
       return;
     }
 
-    // Show DNA preview modal with text
-    setAnalyzedData({
-      textContent: textInput,
-      sourceTitle: 'Custom Voice',
-      sourceUrl: '',
-    });
-    setPresetName('Custom Voice');
-    setShowDnaModal(true);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Get Firebase ID token for authentication
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error('Failed to get authentication token');
+      }
+
+      // Extract text (direct input)
+      const extractResponse = await fetch('/api/voice/extract', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ text: textInput }),
+      });
+
+      const extractData = await extractResponse.json();
+
+      if (!extractData.success) {
+        throw new Error(extractData.error || 'Failed to extract text');
+      }
+
+      // Analyze extracted text
+      const analyzeResponse = await fetch('/api/voice/analyze', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ text: extractData.data.text }),
+      });
+
+      const analyzeData = await analyzeResponse.json();
+
+      if (!analyzeData.success) {
+        throw new Error(analyzeData.error || 'Failed to analyze voice');
+      }
+
+      // Show DNA preview modal
+      setAnalyzedData({
+        textContent: extractData.data.text,
+        sourceTitle: 'Custom Voice',
+        sourceUrl: '',
+        analysis: analyzeData.data,
+      });
+      setPresetName('Custom Voice');
+      setShowDnaModal(true);
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to process text');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,44 +214,105 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onNavigate }) => {
     reader.readAsDataURL(file);
   };
 
-  const handleFileAnalyze = () => {
+  const handleFileAnalyze = async () => {
     if (!fileData) {
       setError('Please select a file first');
       return;
     }
 
-    // Show DNA preview modal with file content
-    setAnalyzedData({
-      textContent: `File: ${fileData.name}`,
-      sourceTitle: fileData.name.replace(/\.[^/.]+$/, ''),
-      sourceUrl: '',
-    });
-    setPresetName(fileData.name.replace(/\.[^/.]+$/, ''));
-    setShowDnaModal(true);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Get Firebase ID token for authentication
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        throw new Error('Failed to get authentication token');
+      }
+
+      // Create FormData for file upload
+      const formData = new FormData();
+      const blob = new Blob([Uint8Array.from(atob(fileData.data), c => c.charCodeAt(0))], { 
+        type: fileData.mimeType 
+      });
+      formData.append('file', blob, fileData.name);
+
+      // Extract text from file
+      const extractResponse = await fetch('/api/voice/extract', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: formData,
+      });
+
+      const extractData = await extractResponse.json();
+
+      if (!extractData.success) {
+        throw new Error(extractData.error || 'Failed to extract text from file');
+      }
+
+      // Analyze extracted text
+      const analyzeResponse = await fetch('/api/voice/analyze', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ text: extractData.data.text }),
+      });
+
+      const analyzeData = await analyzeResponse.json();
+
+      if (!analyzeData.success) {
+        throw new Error(analyzeData.error || 'Failed to analyze voice');
+      }
+
+      // Show DNA preview modal
+      setAnalyzedData({
+        textContent: extractData.data.text,
+        sourceTitle: fileData.name.replace(/\.[^/.]+$/, ''),
+        sourceUrl: '',
+        analysis: analyzeData.data,
+      });
+      setPresetName(fileData.name.replace(/\.[^/.]+$/, ''));
+      setShowDnaModal(true);
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to process file');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSaveVoice = async () => {
-    if (!presetName.trim() || !analyzedData) return;
+  const handleSaveVoice = async (name: string, intensity: number) => {
+    if (!name.trim() || !analyzedData) return;
     if (!user) return;
 
     setIsLoading(true);
 
     try {
       const newPreset: Partial<VoicePreset> = {
-        name: presetName,
+        name: name,
         referenceText: analyzedData.textContent,
         ownerId: user.id,
         visibility: 'private',
+        metadata: analyzedData.analysis ? {
+          characteristics: analyzedData.analysis.characteristics,
+          rules: analyzedData.analysis.rules,
+          intensity: intensity,
+          analyzedAt: analyzedData.analysis.analyzedAt,
+        } : undefined,
       };
 
-      await dbService.saveVoicePreset(user.id, presetName, analyzedData.textContent);
+      await dbService.saveVoicePreset(user.id, name, analyzedData.textContent);
 
       // Refresh presets
       const updatedPresets = await dbService.getVoicePresets(user.id);
       setPresets(updatedPresets);
 
       // Show success and close modal
-      setSuccess(`Voice "${presetName}" created! You can now use it in Studio.`);
+      setSuccess(`Voice "${name}" created! You can now use it in Studio.`);
       setShowDnaModal(false);
       setAnalyzedData(null);
       setPresetName('');
@@ -450,84 +589,17 @@ const LibraryPage: React.FC<LibraryPageProps> = ({ onNavigate }) => {
 
       {/* DNA Preview Modal */}
       {showDnaModal && analyzedData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-textMain">Voice DNA Detected</h3>
-              <button onClick={() => setShowDnaModal(false)} className="text-textMuted hover:text-textMain">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Content Preview */}
-            <div className="mb-4">
-              <label className="text-xs font-semibold text-textMuted uppercase tracking-widest mb-2 block">
-                Content Preview
-              </label>
-              <div className="p-3 bg-background border border-border rounded-md max-h-32 overflow-y-auto">
-                <p className="text-xs text-textMuted whitespace-pre-wrap">
-                  {analyzedData.textContent.slice(0, 500)}...
-                </p>
-              </div>
-            </div>
-
-            {/* Preset Name Input */}
-            <div className="mb-4">
-              <label className="text-xs font-semibold text-textMuted uppercase tracking-widest mb-2 block">
-                Voice Name
-              </label>
-              <input
-                type="text"
-                value={presetName}
-                onChange={(e) => setPresetName(e.target.value)}
-                placeholder="e.g., Tech CEO Voice"
-                className="w-full px-3 py-2 bg-background border border-border rounded-md text-textMain placeholder-textMuted/50 focus:border-primary focus:outline-none"
-              />
-            </div>
-
-            {/* Intensity Slider */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-semibold text-textMuted uppercase tracking-widest">
-                  Mimicry Intensity
-                </label>
-                <span className="text-xs font-mono text-primary">{presetIntensity}%</span>
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                value={presetIntensity}
-                onChange={(e) => setPresetIntensity(parseInt(e.target.value))}
-                className="w-full h-1 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDnaModal(false)}
-                className="flex-1 px-4 py-3 border border-border text-textMuted rounded-md font-medium hover:text-white hover:border-textMuted transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveVoice}
-                disabled={!presetName.trim() || isLoading}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-md font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Save Voice
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DnaPreviewModal
+          isOpen={showDnaModal}
+          onClose={() => setShowDnaModal(false)}
+          onSave={handleSaveVoice}
+          sourceTitle={analyzedData.sourceTitle}
+          sourceUrl={analyzedData.sourceUrl}
+          textContent={analyzedData.textContent}
+          analysis={analyzedData.analysis}
+          isSaving={isLoading}
+          canSave={true}
+        />
       )}
 
       {/* Toast Notifications */}

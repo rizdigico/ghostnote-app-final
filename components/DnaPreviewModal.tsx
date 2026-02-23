@@ -1,6 +1,29 @@
 import React, { useState } from 'react';
 import { X, Save, Link, FileText, Sparkles, AlertCircle } from 'lucide-react';
 
+interface VoiceCharacteristics {
+  tone: string;
+  style: string;
+  vocabulary: string;
+  cadence: string;
+  structure: string;
+}
+
+interface GhostwritingRules {
+  general: string[];
+  toneGuidelines: string[];
+  styleGuidelines: string[];
+  vocabularyGuidelines: string[];
+  cadenceGuidelines: string[];
+  structureGuidelines: string[];
+}
+
+interface AnalysisResult {
+  characteristics: VoiceCharacteristics;
+  rules: GhostwritingRules;
+  analyzedAt: string;
+}
+
 interface DnaPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -8,6 +31,7 @@ interface DnaPreviewModalProps {
   sourceTitle: string;
   sourceUrl: string;
   textContent: string;
+  analysis?: AnalysisResult;
   isSaving?: boolean;
   canSave?: boolean;
 }
@@ -19,6 +43,7 @@ export const DnaPreviewModal: React.FC<DnaPreviewModalProps> = ({
   sourceTitle,
   sourceUrl,
   textContent,
+  analysis,
   isSaving = false,
   canSave = true,
 }) => {
@@ -85,6 +110,61 @@ export const DnaPreviewModal: React.FC<DnaPreviewModalProps> = ({
             {wordCount.toLocaleString()} words • {textContent.length.toLocaleString()} characters
           </p>
         </div>
+
+        {/* Voice Analysis */}
+        {analysis && (
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-textMuted uppercase tracking-widest pl-1 mb-2 block">
+              Voice Characteristics
+            </label>
+            <div className="bg-background border border-border rounded-md p-3 space-y-2">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-textMuted w-16">Tone:</span>
+                <span className="text-xs text-textMain flex-1 ml-2">{analysis.characteristics.tone}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-textMuted w-16">Style:</span>
+                <span className="text-xs text-textMain flex-1 ml-2">{analysis.characteristics.style}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-textMuted w-16">Vocabulary:</span>
+                <span className="text-xs text-textMain flex-1 ml-2">{analysis.characteristics.vocabulary}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-textMuted w-16">Cadence:</span>
+                <span className="text-xs text-textMain flex-1 ml-2">{analysis.characteristics.cadence}</span>
+              </div>
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] text-textMuted w-16">Structure:</span>
+                <span className="text-xs text-textMain flex-1 ml-2">{analysis.characteristics.structure}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Ghostwriting Rules Preview */}
+        {analysis && (
+          <div className="mb-4">
+            <label className="text-xs font-semibold text-textMuted uppercase tracking-widest pl-1 mb-2 block">
+              Ghostwriting Rules (Sample)
+            </label>
+            <div className="bg-background border border-border rounded-md p-3 max-h-40 overflow-y-auto">
+              <ul className="text-xs text-textMain space-y-1">
+                {analysis.rules.general.slice(0, 3).map((rule, index) => (
+                  <li key={index} className="flex items-start">
+                    <span className="mr-2 text-accent">•</span>
+                    <span>{rule}</span>
+                  </li>
+                ))}
+              </ul>
+              {analysis.rules.general.length > 3 && (
+                <p className="text-[10px] text-textMuted mt-1">
+                  +{analysis.rules.general.length - 3} more rules
+                </p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Preset Name Input */}
         <div className="mb-4">

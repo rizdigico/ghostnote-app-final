@@ -59,6 +59,24 @@ export interface VoicePreset {
     source?: 'manual' | 'url' | 'file';
     sourceUrl?: string;
     linguisticDna?: LinguisticDna;
+    characteristics?: {
+      tone: string;
+      style: string;
+      vocabulary: string;
+      cadence: string;
+      structure: string;
+    };
+    rules?: {
+      general: string[];
+      toneGuidelines: string[];
+      styleGuidelines: string[];
+      vocabularyGuidelines: string[];
+      cadenceGuidelines: string[];
+      structureGuidelines: string[];
+    };
+    description?: string;
+    analyzedAt?: string;
+    intensity?: number; // Mimicry intensity (10-100%)
   };
 }
 

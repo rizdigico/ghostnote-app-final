@@ -7,6 +7,8 @@ import { chunkText, shouldUseRAG, TextChunk } from './lib/chunker';
 import { generateEmbedding, generateEmbeddingsForChunks } from './lib/embeddings';
 import { storeEmbeddings, findSimilarDocuments, hasSession, EmbeddingDocument } from './lib/vectorStore';
 import { analyzeLinguisticDNA, buildDNAPrompt, calculateSimilarityScore, LinguisticDNA } from './lib/linguisticAnalyzer';
+import { VoicePreset } from '../types';
+import { verifyAuthToken } from './lib/verifyAuthToken';
 
 // --- SECURITY: RATE LIMITING ---
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
@@ -57,25 +59,65 @@ interface VoiceProfile {
   };
 }
 
-// Mock database lookup - in production, fetch from Firestore
-async function getVoiceProfile(voiceId: string): Promise<VoiceProfile | null> {
-  // This would normally query Firestore
-  // For now, return null to use referenceText directly
+import { dbService } from '../dbService';
+
+// Retrieve voice profile from database
+async function getVoiceProfile(voiceId: string, userId: string): Promise<VoicePreset | null> {
   console.log(`[VoiceBlender] Fetching profile for: ${voiceId}`);
-  return null;
+  return await dbService.getVoicePresetById(userId, voiceId);
 }
 
 // Build the blended system prompt from Base + Injection voices
-function buildVoiceBlenderPrompt(
+async function buildVoiceBlenderPrompt(
   baseText: string,
   injections: { voiceId: string; intensity: number }[],
-  dna: LinguisticDNA | null
-): string {
+  dna: LinguisticDNA | null,
+  baseVoiceId: string | undefined,
+  primaryVoiceId: string | undefined,
+  userId: string
+): Promise<string> {
   let prompt = `You are a professional ghostwriter.`;
   
   // Add DNA analysis if available
   if (dna) {
     prompt += `\n\n${buildDNAPrompt(dna, '')}`;
+  }
+  
+  // Get base voice preset if voiceId is provided
+  const targetVoiceId = baseVoiceId || primaryVoiceId;
+  if (targetVoiceId) {
+    const voicePreset = await getVoiceProfile(targetVoiceId, userId);
+    if (voicePreset) {
+      // Add voice rules if available
+      if (voicePreset.metadata?.rules) {
+        const rules = voicePreset.metadata.rules;
+        prompt += `\n\nVOICE RULES:`;
+        
+        if (rules.general && rules.general.length > 0) {
+          prompt += `\n\nGeneral Guidelines:\n${rules.general.map(rule => `- ${rule}`).join('\n')}`;
+        }
+        
+        if (rules.toneGuidelines && rules.toneGuidelines.length > 0) {
+          prompt += `\n\nTone Guidelines:\n${rules.toneGuidelines.map(rule => `- ${rule}`).join('\n')}`;
+        }
+        
+        if (rules.styleGuidelines && rules.styleGuidelines.length > 0) {
+          prompt += `\n\nStyle Guidelines:\n${rules.styleGuidelines.map(rule => `- ${rule}`).join('\n')}`;
+        }
+        
+        if (rules.vocabularyGuidelines && rules.vocabularyGuidelines.length > 0) {
+          prompt += `\n\nVocabulary Guidelines:\n${rules.vocabularyGuidelines.map(rule => `- ${rule}`).join('\n')}`;
+        }
+        
+        if (rules.cadenceGuidelines && rules.cadenceGuidelines.length > 0) {
+          prompt += `\n\nCadence Guidelines:\n${rules.cadenceGuidelines.map(rule => `- ${rule}`).join('\n')}`;
+        }
+        
+        if (rules.structureGuidelines && rules.structureGuidelines.length > 0) {
+          prompt += `\n\nStructure Guidelines:\n${rules.structureGuidelines.map(rule => `- ${rule}`).join('\n')}`;
+        }
+      }
+    }
   }
   
   // Add base voice reference
@@ -86,12 +128,26 @@ function buildVoiceBlenderPrompt(
   // Add injection voices if present
   if (injections && injections.length > 0) {
     prompt += `\n\nSTYLE INJECTIONS:`;
-    injections.forEach((inj, idx) => {
+    for (let idx = 0; idx < injections.length; idx++) {
+      const inj = injections[idx];
       const intensityPercent = Math.round(inj.intensity * 100);
       prompt += `\n\nInjection ${idx + 1} (Voice ID: ${inj.voiceId}, Intensity: ${intensityPercent}%):`;
-      // Note: In production, we'd fetch the actual injection voice text here
-      // For now, the injection is handled via intensity parameter below
-    });
+      
+      // Get injection voice preset if available
+      const injectionPreset = await getVoiceProfile(inj.voiceId, userId);
+      if (injectionPreset?.metadata?.rules) {
+        const rules = injectionPreset.metadata.rules;
+        prompt += `\n  Rules:`;
+        
+        if (rules.general && rules.general.length > 0) {
+          prompt += `\n    - General: ${rules.general.slice(0, 2).join('; ')}`;
+        }
+        
+        if (rules.toneGuidelines && rules.toneGuidelines.length > 0) {
+          prompt += `\n    - Tone: ${rules.toneGuidelines.slice(0, 2).join('; ')}`;
+        }
+      }
+    }
   }
   
   return prompt;
@@ -236,50 +292,66 @@ export default async function handler(req: Request) {
           return;
         }
         
-        // Extract all parameters
-        const { 
-          draft, 
-          referenceText, 
-          fileContent, 
-          sessionId, 
-          intensity, 
-          primaryVoiceId, 
-          baseVoiceId,
-          injections 
-        } = body;
-        
-        // ============================================================
-        // VOICE BLENDER LOGIC
-        // ============================================================
-        
-        // Log voice blending
-        if (primaryVoiceId || baseVoiceId || (injections && injections.length > 0)) {
-          console.log('[VoiceBlender] Processing:', {
-            baseVoiceId: baseVoiceId || primaryVoiceId,
-            injections: injections?.map((i: any) => ({ voiceId: i.voiceId, intensity: i.intensity })),
-            intensity: intensity
-          });
-        }
-        
-        // Analyze Linguistic DNA from reference text
-        let dna: LinguisticDNA | null = null;
-        if (referenceText && referenceText.length > 100) {
-          dna = analyzeLinguisticDNA(referenceText);
-          controller.enqueue(encoder.encode(`Analyzing Linguistic DNA... Cadence: ${dna.cadence.avgSentenceLength} words/sentence, Tone: ${dna.tone}\n`));
-        }
-        
-        // ============================================================
-        // VOICE BLENDER: Build enhanced prompt
-        // ============================================================
-        
-        const validIntensity = Math.min(100, Math.max(0, Number(intensity) || 50));
-        
-        // Build the voice-blended system prompt
-        let systemPrompt = buildVoiceBlenderPrompt(
-          referenceText || '',
-          injections || [],
-          dna
-        );
+         // Extract all parameters
+         const { 
+           draft, 
+           referenceText, 
+           fileContent, 
+           sessionId, 
+           intensity, 
+           primaryVoiceId, 
+           baseVoiceId,
+           injections,
+           voiceId // New parameter for explicit voice selection
+         } = body;
+         
+         // Get user ID from auth token
+         let userId: string | null = null;
+         const authHeader = req.headers.get('authorization');
+         if (authHeader && authHeader.startsWith('Bearer ')) {
+           const token = authHeader.slice(7);
+           try {
+             userId = await verifyAuthToken(token);
+           } catch (error) {
+             console.error('Auth token verification failed:', error);
+           }
+         }
+         
+         // ============================================================
+         // VOICE BLENDER LOGIC
+         // ============================================================
+         
+         // Log voice blending
+         if (primaryVoiceId || baseVoiceId || voiceId || (injections && injections.length > 0)) {
+           console.log('[VoiceBlender] Processing:', {
+             voiceId: voiceId || baseVoiceId || primaryVoiceId,
+             injections: injections?.map((i: any) => ({ voiceId: i.voiceId, intensity: i.intensity })),
+             intensity: intensity
+           });
+         }
+         
+         // Analyze Linguistic DNA from reference text
+         let dna: LinguisticDNA | null = null;
+         if (referenceText && referenceText.length > 100) {
+           dna = analyzeLinguisticDNA(referenceText);
+           controller.enqueue(encoder.encode(`Analyzing Linguistic DNA... Cadence: ${dna.cadence.avgSentenceLength} words/sentence, Tone: ${dna.tone}\n`));
+         }
+         
+         // ============================================================
+         // VOICE BLENDER: Build enhanced prompt
+         // ============================================================
+         
+         const validIntensity = Math.min(100, Math.max(0, Number(intensity) || 50));
+         
+         // Build the voice-blended system prompt
+         let systemPrompt = await buildVoiceBlenderPrompt(
+           referenceText || '',
+           injections || [],
+           dna,
+           baseVoiceId || voiceId,
+           primaryVoiceId,
+           userId || 'anonymous'
+         );
         
         // Add intensity instructions
         systemPrompt += `\n\nINTENSITY SETTING: ${validIntensity}%
