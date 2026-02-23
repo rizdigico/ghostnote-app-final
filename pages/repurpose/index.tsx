@@ -18,21 +18,12 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
   const videoInputRef = useRef<HTMLInputElement>(null);
 
   const handleVoiceTranscriptionComplete = (text: string) => {
-    localStorage.setItem('pendingStudioContent', text);
-    onNavigate('/studio');
+    onNavigate(`/studio?transcript=${encodeURIComponent(text)}`);
   };
 
   const handleTextSubmit = () => {
     if (!textInput.trim()) return;
-    
-    setProcessingType('text');
-    
-    // Simulate processing
-    setTimeout(() => {
-      localStorage.setItem('pendingStudioContent', textInput);
-      setProcessingType('idle');
-      onNavigate('/studio');
-    }, 1000);
+    onNavigate(`/studio?transcript=${encodeURIComponent(textInput.trim())}`);
   };
 
   const handleVideoClick = () => {
@@ -42,6 +33,13 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
   const handleVideoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    const MAX_SIZE = 25 * 1024 * 1024; // 25MB
+    if (file.size > MAX_SIZE) {
+      setError('File exceeds the 25MB limit. Please use a smaller file.');
+      if (videoInputRef.current) videoInputRef.current.value = '';
+      return;
+    }
 
     setVideoFile(file);
     setProcessingType('video');
@@ -70,9 +68,8 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
       const data = await response.json();
 
       if (response.ok && data.text) {
-        // Success — store real transcription and navigate to Studio
-        localStorage.setItem('pendingStudioContent', data.text);
-        onNavigate('/studio');
+        // Success — hand off transcript to Studio via URL param
+        onNavigate(`/studio?transcript=${encodeURIComponent(data.text)}`);
       } else {
         throw new Error(data.error || 'Transcription failed. Please try again.');
       }
@@ -171,6 +168,7 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
               description="Record a voice note directly in your browser. We'll transcribe and analyze your speaking style."
               action={() => setShowVoiceRecorder(true)}
               accentColor="bg-red-500/20"
+              disabled={processingType === 'video'}
             />
             <InputCard
               icon={<Video className="w-8 h-8 text-blue-500" />}
@@ -189,6 +187,14 @@ const RepurposePage: React.FC<RepurposePageProps> = ({ onNavigate }) => {
               disabled={processingType === 'text'}
             />
           </div>
+
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-6 flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p className="text-sm">{error}</p>
+            </div>
+          )}
 
           {/* Text Input Section */}
           <div className="bg-surface border border-border rounded-xl p-6">

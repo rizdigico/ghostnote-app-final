@@ -113,8 +113,8 @@ const AppContent: React.FC = () => {
   };
 
   const handleNavigate = (path: string) => {
-    setCurrentPath(path);
-    window.history.pushState({}, '', path);
+    setCurrentPath(path.split('?')[0]); // strip query string so routing switch matches correctly
+    window.history.pushState({}, '', path); // full URL (with any ?params) written to browser history
   };
 
   const handleLogout = async () => {

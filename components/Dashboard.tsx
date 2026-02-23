@@ -113,7 +113,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onGoHome, onViewLegal, onNavigate
                 setReferenceText(defaultVoice.referenceText);
               }
 
-              // Check for pending content from Repurpose flow
+              // Check URL param for transcript from Repurpose flow (primary path)
+              const urlParams = new URLSearchParams(window.location.search);
+              const transcriptParam = urlParams.get('transcript');
+              if (transcriptParam) {
+                setDraftText(decodeURIComponent(transcriptParam));
+                window.history.replaceState({}, '', window.location.pathname); // clean URL, no reload
+              }
+
+              // Check localStorage for transcript (backward-compat fallback)
               const pendingContent = localStorage.getItem('pendingStudioContent');
               if (pendingContent) {
                 setDraftText(pendingContent);
